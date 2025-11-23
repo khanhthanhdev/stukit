@@ -1,5 +1,4 @@
 import { Suspense } from "react"
-import { AnalyticsCard, AnalyticsCardSkeleton } from "~/app/admin/_components/analytics-card"
 import {
   ScheduledToolsCard,
   ScheduledToolsCardSkeleton,
@@ -26,10 +25,6 @@ export default function DashboardPage() {
           ))}
         >
           <StatsCard />
-        </Suspense>
-
-        <Suspense fallback={<AnalyticsCardSkeleton className="col-span-full lg:col-span-2" />}>
-          <AnalyticsCard className="col-span-full lg:col-span-2" />
         </Suspense>
 
         <Suspense fallback={<ScheduledToolsCardSkeleton className="col-span-full lg:col-span-2" />}>

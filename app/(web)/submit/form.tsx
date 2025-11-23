@@ -110,7 +110,7 @@ export const SubmitForm = ({ className, ...props }: HTMLAttributes<HTMLFormEleme
             <FormItem>
               <FormLabel isRequired>Name:</FormLabel>
               <FormControl>
-                <Input size="lg" placeholder="PostHog" data-1p-ignore {...field} />
+                <Input size="lg" placeholder="Acme Analytics" data-1p-ignore {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -124,7 +124,7 @@ export const SubmitForm = ({ className, ...props }: HTMLAttributes<HTMLFormEleme
             <FormItem>
               <FormLabel isRequired>Website URL:</FormLabel>
               <FormControl>
-                <Input type="url" size="lg" placeholder="https://posthog.com" {...field} />
+                <Input type="url" size="lg" placeholder="https://acmeanalytics.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

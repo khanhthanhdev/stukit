@@ -1,3 +1,3 @@
 export const mediaConfig = {
-  staticHost: "https://devsuite.s3.us-east-1.amazonaws.com",
+  staticHost: "https://stukit.s3.ap-southeast-1.amazonaws.com",
 }

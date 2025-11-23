@@ -24,7 +24,6 @@ export const env = createEnv({
     SCREENSHOTONE_ACCESS_KEY: z.string().min(1),
     BEEHIIV_PUBLICATION_ID: z.string().min(1),
     BEEHIIV_API_KEY: z.string().min(1),
-    PLAUSIBLE_API_KEY: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
     ANTHROPIC_API_KEY: z.string().min(1),
     FIRECRAWL_API_KEY: z.string().min(1),
@@ -44,10 +43,6 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_SITE_URL: z.string().url().min(1),
     NEXT_PUBLIC_SITE_EMAIL: z.string().email().min(1),
-    NEXT_PUBLIC_PLAUSIBLE_DOMAIN: z.string().min(1),
-    NEXT_PUBLIC_PLAUSIBLE_HOST: z.string().url().min(1),
-    NEXT_PUBLIC_POSTHOG_HOST: z.string().url().min(1),
-    NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
   },
 
   /**
@@ -58,10 +53,6 @@ export const env = createEnv({
     VERCEL_URL: process.env.VERCEL_URL,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_SITE_EMAIL: process.env.NEXT_PUBLIC_SITE_EMAIL,
-    NEXT_PUBLIC_PLAUSIBLE_DOMAIN: process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN,
-    NEXT_PUBLIC_PLAUSIBLE_HOST: process.env.NEXT_PUBLIC_PLAUSIBLE_HOST,
-    NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
   },
 
   /**

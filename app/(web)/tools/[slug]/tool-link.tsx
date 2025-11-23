@@ -2,7 +2,6 @@
 
 import { getUrlHostname } from "@curiousleaf/utils"
 import { ArrowUpRightIcon } from "lucide-react"
-import { posthog } from "posthog-js"
 import type { ComponentProps } from "react"
 import { Button } from "~/components/web/ui/button"
 import type { ToolOne } from "~/server/tools/payloads"
@@ -15,13 +14,6 @@ export const ToolLink = ({ tool, ...props }: ToolLinkProps) => {
   return (
     <Button
       suffix={<ArrowUpRightIcon />}
-      onClick={() =>
-        posthog.capture("tool_clicked", {
-          slug: tool.slug,
-          websiteUrl: tool.websiteUrl,
-          isFeatured: tool.isFeatured,
-        })
-      }
       asChild
       {...props}
     >

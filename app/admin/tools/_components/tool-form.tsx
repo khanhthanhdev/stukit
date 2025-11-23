@@ -111,7 +111,7 @@ export function ToolForm({
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="PostHog" {...field} />
+                <Input placeholder="Acme Analytics" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -125,7 +125,7 @@ export function ToolForm({
             <FormItem>
               <FormLabel>Slug</FormLabel>
               <FormControl>
-                <Input placeholder="posthog" {...field} />
+                <Input placeholder="acme-analytics" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -139,7 +139,7 @@ export function ToolForm({
             <FormItem>
               <FormLabel>Website URL</FormLabel>
               <FormControl>
-                <Input placeholder="https://posthog.com" {...field} />
+                <Input placeholder="https://acmeanalytics.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -182,7 +182,7 @@ export function ToolForm({
               <FormLabel>Description</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="PostHog is the only all-in-one platform for product analytics, feature flags, session replays, experiments, and surveys that's built for developers."
+                  placeholder="Acme Analytics helps teams ship faster with unified analytics, feature flags, and experiments built for developers."
                   {...field}
                 />
               </FormControl>

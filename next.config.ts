@@ -1,6 +1,5 @@
 import createMDX from "@next/mdx"
 import type { NextConfig } from "next"
-import { withPlausibleProxy } from "next-plausible"
 
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
@@ -9,33 +8,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { hostname: `${process.env.S3_BUCKET}.s3.${process.env.S3_REGION}.amazonaws.com` },
+      { hostname: "stukit.s3.ap-southeast-1.amazonaws.com" },
     ],
-  },
-
-  async rewrites() {
-    const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST
-
-    return [
-      // for posthog proxy
-      {
-        source: "/_proxy/posthog/ingest/static/:path*",
-        destination: `${posthogHost?.replace("us", "us-assets")}/static/:path*`,
-      },
-      {
-        source: "/_proxy/posthog/ingest/:path*",
-        destination: `${posthogHost}/:path*`,
-      },
-      {
-        source: "/_proxy/posthog/ingest/decide",
-        destination: `${posthogHost}/decide`,
-      },
-    ]
   },
 }
 
-const plausibleProxy = withPlausibleProxy({
-  customDomain: process.env.NEXT_PUBLIC_PLAUSIBLE_HOST,
-  subdirectory: "_proxy/plausible",
-})
-
-export default plausibleProxy(createMDX({})(nextConfig))
+export default createMDX({})(nextConfig)

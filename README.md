@@ -75,7 +75,6 @@ All commands are run from the root of the project, from a terminal:
 DevSuite uses the following third-party services:
 
 - Database: [Neon](https://neon.tech)
-- Analytics: [Plausible](https://plausible.io), [PostHog](https://posthog.com)
 - Newsletter: [Beehiiv](https://go.devsuite.co/beehiiv)
 - Background Jobs: [Inngest](https://inngest.com)
 - File Storage: [AWS S3](https://aws.amazon.com/s3)
