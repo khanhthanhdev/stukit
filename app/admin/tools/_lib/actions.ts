@@ -40,6 +40,11 @@ export const updateTool = authedProcedure
   .createServerAction()
   .input(toolSchema.extend({ id: z.string() }))
   .handler(async ({ input: { id, categories, collections, tags, ...input } }) => {
+    const previous = await prisma.tool.findUniqueOrThrow({
+      where: { id },
+      select: { publishedAt: true },
+    })
+
     const tool = await prisma.tool.update({
       where: { id },
       data: {
@@ -54,6 +59,10 @@ export const updateTool = authedProcedure
 
     revalidatePath("/admin/tools")
     revalidatePath(`/admin/tools/${tool.slug}`)
+
+    if (!previous.publishedAt && tool.publishedAt) {
+      await inngest.send({ name: "tool.scheduled", data: { slug: tool.slug } })
+    }
 
     return tool
   })

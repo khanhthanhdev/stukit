@@ -1,8 +1,6 @@
 import type { Tool } from "@prisma/client"
-import { Hr, Link, Text } from "@react-email/components"
+import { Hr, Text } from "@react-email/components"
 import type { Jsonify } from "inngest/helpers/jsonify"
-import { config } from "~/config"
-import { EmailButton } from "~/emails/_components/button"
 
 type EmailFeatureNudgeProps = {
   tool?: Tool | Jsonify<Tool>
@@ -10,17 +8,7 @@ type EmailFeatureNudgeProps = {
 }
 
 export const EmailFeatureNudge = ({ tool, showButton }: EmailFeatureNudgeProps) => {
-  const link = `${config.site.url}/submit/${tool?.slug}`
-
-  const benefits = [
-    "⏱️ Get published within 12 hours",
-    "🔗 Get a do-follow link",
-    "⭐ Featured on our homepage",
-    "📌 Prominent placement on collection pages",
-    "✏️ Unlimited content updates",
-  ]
-
-  if (tool?.isFeatured) {
+  if (!tool) {
     return null
   }
 
@@ -29,24 +17,15 @@ export const EmailFeatureNudge = ({ tool, showButton }: EmailFeatureNudgeProps) 
       {showButton && <Hr />}
 
       <Text>
-        Want to maximize {tool?.name}'s visibility? Consider upgrading to{" "}
-        <Link href={link}>our Featured plan</Link>. We offer a wide range of featuring options:
+        {tool.name} is in our review queue. We manually approve and publish a handful of tools each
+        week in the order they were submitted.
       </Text>
-
-      <ul>
-        {benefits.map(benefit => (
-          <li key={benefit}>
-            <Text className="m-0">{benefit}</Text>
-          </li>
-        ))}
-      </ul>
 
       <Text>
-        Plus, we're currently offering a{" "}
-        <strong className="text-black">50% Early Bird discount!</strong>
+        There&apos;s nothing else you need to do&mdash;our cron-driven admin workflow will pick it
+        up automatically and we&apos;ll email you as soon as {tool.name} is scheduled or needs more
+        info. Just reply to this email if you have an update.
       </Text>
-
-      {showButton && <EmailButton href={link}>Boost {tool?.name}'s visibility</EmailButton>}
     </>
   )
 }

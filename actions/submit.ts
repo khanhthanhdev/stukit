@@ -2,7 +2,6 @@
 
 import { slugify } from "@curiousleaf/utils"
 import { createServerAction } from "zsa"
-import { subscribeToNewsletter } from "~/actions/subscribe"
 import { submitToolSchema } from "~/server/schemas"
 import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
@@ -35,15 +34,7 @@ const generateUniqueSlug = async (baseName: string): Promise<string> => {
 export const submitTool = createServerAction()
   .input(submitToolSchema)
   .handler(async ({ input }) => {
-    const { newsletterOptIn, ...data } = input
-
-    if (newsletterOptIn) {
-      await subscribeToNewsletter({
-        email: data.submitterEmail,
-        utm_medium: "submit_form",
-        send_welcome_email: false,
-      })
-    }
+    const data = input
 
     // Check if the tool already exists
     const existingTool = await prisma.tool.findFirst({

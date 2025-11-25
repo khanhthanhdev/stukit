@@ -4,11 +4,10 @@ import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { SearchParams } from "nuqs"
-import { createSearchParamsCache, parseAsBoolean, parseAsString } from "nuqs/server"
-import { Suspense, cache } from "react"
+import { createSearchParamsCache, parseAsBoolean } from "nuqs/server"
+import { cache } from "react"
 import { SubmitProducts } from "~/app/(web)/submit/[slug]/products"
 import { Prose } from "~/components/common/prose"
-import { PlanSkeleton } from "~/components/web/plan"
 import { Intro, IntroDescription, IntroTitle } from "~/components/web/ui/intro"
 import { Wrapper } from "~/components/web/ui/wrapper"
 import { config } from "~/config"
@@ -23,8 +22,6 @@ type PageProps = {
 
 const searchParamsCache = createSearchParamsCache({
   success: parseAsBoolean.withDefault(false),
-  cancelled: parseAsBoolean.withDefault(false),
-  discount: parseAsString.withDefault(""),
 })
 
 const getTool = cache(async ({ slug, success }: { slug: string; success: boolean }) => {
@@ -35,33 +32,25 @@ const getTool = cache(async ({ slug, success }: { slug: string; success: boolean
 
 const getMetadata = cache((tool: Tool, success: boolean, metadata?: Metadata): Metadata => {
   if (success) {
-    if (tool.isFeatured) {
-      return {
-        ...metadata,
-        title: "Thank you for your payment!",
-        description: `We've received your payment. ${tool.name} should be featured on ${config.site.name} shortly.`,
-      }
-    }
-
     return {
       ...metadata,
-      title: `Thank you for submitting ${tool.name}!`,
-      description: `We've received your submission. We'll review it shortly and get back to you.`,
+      title: `Thanks for submitting ${tool.name}!`,
+      description: `${tool.name} is now sitting in our moderation queue. An admin will publish it once it clears review.`,
     }
   }
 
   if (isToolPublished(tool)) {
     return {
       ...metadata,
-      title: `Boost ${tool.name}'s Visibility`,
-      description: `You can upgrade ${tool.name}'s listing on ${config.site.name} to benefit from a featured badge, a prominent placement, and a do-follow link.`,
+      title: `${tool.name} is already live`,
+      description: `We'll review any new details you requested and keep ${tool.name} in the queue for future updates.`,
     }
   }
 
   return {
     ...metadata,
-    title: "Choose a submission package",
-    description: `Maximize ${tool.name}'s impact from day one. Select a package that suits your goals - from free listing to premium features.`,
+    title: `Submission status for ${tool.name}`,
+    description: `You're all set. We publish new listings every week once they move through the admin queue.`,
   }
 })
 
@@ -108,7 +97,7 @@ export default async function SubmitPackages({ params, searchParams }: PageProps
         <IntroDescription>{description}</IntroDescription>
       </Intro>
 
-      {success ? (
+      {success && (
         <Image
           src={`${config.media.staticHost}/3d-heart.webp`}
           alt=""
@@ -116,13 +105,11 @@ export default async function SubmitPackages({ params, searchParams }: PageProps
           width={256}
           height={228}
         />
-      ) : (
-        <div className="flex flex-wrap justify-center gap-5">
-          <Suspense fallback={[...Array(3)].map((_, index) => <PlanSkeleton key={index} />)}>
-            <SubmitProducts tool={tool} />
-          </Suspense>
-        </div>
       )}
+
+      <div className="flex justify-center">
+        <SubmitProducts tool={tool} />
+      </div>
 
       <Intro>
         <IntroTitle size="h3">Have questions?</IntroTitle>

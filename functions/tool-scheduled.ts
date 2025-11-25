@@ -19,6 +19,7 @@ export const toolScheduled = inngest.createFunction(
     await Promise.all([
       step.run("generate-content", async () => {
         const { tags, ...content } = await generateContent(tool)
+        const normalizedTags = (tags ?? []) as string[]
 
         return prisma.tool.update({
           where: { id: tool.id },
@@ -26,9 +27,9 @@ export const toolScheduled = inngest.createFunction(
             ...content,
             // categories: { set: categories.map(({ id }) => ({ id })) },
             tags: {
-              connectOrCreate: tags.map(slug => ({
-                where: { slug },
-                create: { name: slug, slug },
+              connectOrCreate: normalizedTags.map(tagSlug => ({
+                where: { slug: tagSlug },
+                create: { name: tagSlug, slug: tagSlug },
               })),
             },
           },

@@ -8,7 +8,6 @@ import { toast } from "sonner"
 import type { z } from "zod"
 import { useServerAction } from "zsa-react"
 import { submitTool } from "~/actions/submit"
-import { Checkbox } from "~/components/common/checkbox"
 import {
   Form,
   FormControl,
@@ -17,7 +16,6 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/common/form"
-import { FeatureNudge } from "~/components/web/feature-nudge"
 import { Button } from "~/components/web/ui/button"
 import { Input } from "~/components/web/ui/input"
 import { submitToolSchema } from "~/server/schemas"
@@ -33,7 +31,6 @@ export const SubmitForm = ({ className, ...props }: HTMLAttributes<HTMLFormEleme
       websiteUrl: "",
       submitterName: "",
       submitterEmail: "",
-      newsletterOptIn: true,
     },
   })
 
@@ -42,17 +39,11 @@ export const SubmitForm = ({ className, ...props }: HTMLAttributes<HTMLFormEleme
       form.reset()
 
       if (data.publishedAt && data.publishedAt <= new Date()) {
-        if (data.isFeatured) {
-          toast.info(`${data.name} has already been published.`)
-        } else {
-          toast.custom(t => <FeatureNudge tool={data} t={t} />, {
-            duration: Number.POSITIVE_INFINITY,
-          })
-        }
+        toast.info(`${data.name} is already live on ${window.location.host}.`)
         router.push(`/tools/${data.slug}`)
       } else {
-        toast.success(`${data.name} has been submitted.`)
-        router.push(`/submit/${data.slug}`)
+        toast.success(`${data.name} has been added to the review queue.`)
+        router.push(`/submit/${data.slug}?success=true`)
       }
     },
 
@@ -126,20 +117,6 @@ export const SubmitForm = ({ className, ...props }: HTMLAttributes<HTMLFormEleme
               <FormControl>
                 <Input type="url" size="lg" placeholder="https://acmeanalytics.com" {...field} />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="newsletterOptIn"
-          render={({ field }) => (
-            <FormItem className="flex-row items-center col-span-full">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <FormLabel className="font-normal">I'd like to receive free email updates</FormLabel>
               <FormMessage />
             </FormItem>
           )}

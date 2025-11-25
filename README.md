@@ -75,10 +75,8 @@ All commands are run from the root of the project, from a terminal:
 DevSuite uses the following third-party services:
 
 - Database: [Neon](https://neon.tech)
-- Newsletter: [Beehiiv](https://go.devsuite.co/beehiiv)
 - Background Jobs: [Inngest](https://inngest.com)
 - File Storage: [AWS S3](https://aws.amazon.com/s3)
-- Payments: [Stripe](https://stripe.com)
 - Screenshots: [ScreenshotOne](https://go.devsuite.co/screenshotone)
 
 Make sure to set up accounts with these services and add the necessary environment variables to your `.env` file.

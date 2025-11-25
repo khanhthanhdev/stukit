@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import type { PropsWithChildren } from "react"
 import { Footer } from "~/components/web/footer"
 import { Header } from "~/components/web/header"
-import { Newsletter } from "~/components/web/newsletter"
 import { Container } from "~/components/web/ui/container"
 import { Stars } from "~/components/web/ui/stars"
 import { Toaster } from "~/components/web/ui/toaster"
@@ -30,13 +29,6 @@ export default function RootLayout({ children }: PropsWithChildren) {
         {children}
 
         <Wrapper className="mt-auto">
-          {false && (
-            <Newsletter
-              title="Subscribe to our newsletter"
-              description="Stay updated with the newest additions to our digital assets library, upcoming promotions or discounts."
-            />
-          )}
-
           <hr className="relative left-1/2 w-screen -translate-x-1/2 hidden first:block" />
 
           <Footer />

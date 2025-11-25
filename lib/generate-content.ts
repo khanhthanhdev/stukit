@@ -1,6 +1,5 @@
 import "server-only"
-import { createAnthropic } from "@ai-sdk/anthropic"
-import { openai } from "@ai-sdk/openai"
+import { google } from "@ai-sdk/google"
 import { slugify } from "@curiousleaf/utils"
 import type { Tool } from "@prisma/client"
 import { generateObject } from "ai"
@@ -12,12 +11,13 @@ import { firecrawlClient } from "~/services/firecrawl"
 import { prisma } from "~/services/prisma"
 
 /**
- * Generates content for a tool.
+ * Generates content for a tool using Google Gemini 2.5 Flash model.
  * @param tool The tool to generate content for.
  * @returns The generated content.
  */
 export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
-  const model = createAnthropic()("claude-3-5-sonnet-20240620")
+  // Use the latest Gemini 2.5 Flash Lite model
+  const model = google("gemini-2.5-flash-lite")
   const categories = await prisma.category.findMany()
 
   try {
@@ -80,6 +80,20 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
       //   ${categories.map(({ name }) => name).join("\n")}
       // `,
       temperature: 0.3,
+      // Google-specific provider options for Gemini models
+      providerOptions: {
+        google: {
+          // Enable structured outputs for consistent JSON schema responses
+          structuredOutputs: true,
+          // Optional: Add safety settings if needed
+          // safetySettings: [
+          //   {
+          //     category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          //     threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          //   },
+          // ],
+        },
+      },
     })
 
     return object
@@ -94,7 +108,7 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
  * @returns The launch tweet.
  */
 export const generateLaunchTweet = async (tool: Tool | Jsonify<Tool>) => {
-  const model = openai("gpt-4o")
+  const model = google("gemini-2.5-flash")
 
   const { object } = await generateObject({
     model,
