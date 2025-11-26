@@ -1,5 +1,4 @@
 import "server-only"
-import { google } from "@ai-sdk/google"
 import { slugify } from "@curiousleaf/utils"
 import type { Tool } from "@prisma/client"
 import { generateObject } from "ai"
@@ -7,8 +6,12 @@ import type { Jsonify } from "inngest/helpers/jsonify"
 import { z } from "zod"
 import { config } from "~/config"
 import { getErrorMessage } from "~/lib/handle-error"
+import { logger } from "~/lib/logger"
 import { firecrawlClient } from "~/services/firecrawl"
+import { geminiFlashLiteModel, geminiFlashModel } from "~/services/gemini"
 import { prisma } from "~/services/prisma"
+
+const log = logger.ai
 
 /**
  * Generates content for a tool using Google Gemini 2.5 Flash model.
@@ -16,18 +19,23 @@ import { prisma } from "~/services/prisma"
  * @returns The generated content.
  */
 export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
-  // Use the latest Gemini 2.5 Flash Lite model
-  const model = google("gemini-2.5-flash-lite")
+  log.info(`Generating content for tool: ${tool.name}`, { slug: tool.slug, url: tool.websiteUrl })
+
+  const model = geminiFlashLiteModel
   const categories = await prisma.category.findMany()
 
   try {
+    log.debug(`Scraping website: ${tool.websiteUrl}`)
     const scrapedData = await firecrawlClient.scrapeUrl(tool.websiteUrl, {
       formats: ["markdown"],
     })
 
     if (!scrapedData.success) {
+      log.error(`Failed to scrape website: ${tool.websiteUrl}`, { error: scrapedData.error })
       throw new Error(scrapedData.error)
     }
+
+    log.debug(`Successfully scraped website, content length: ${scrapedData.markdown?.length ?? 0}`)
 
     const schema = z.object({
       tagline: z
@@ -51,10 +59,10 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
       //   .transform(a => a.map(name => categories.find(c => c.name === name)).filter(isTruthy))
       //   .describe("A list of categories for the tool."),
       tags: z
-        .array(z.string().transform(name => slugify(name)))
+        .array(z.string())
         .max(10)
         .describe(
-          "A list (max 10) of tags for the tool. Should be short, descriptive and related to software development",
+          "A list (max 10) of tags for the tool. Should be short, lowercase, hyphen-separated and related to software development (e.g. 'code-review', 'testing', 'ci-cd')",
         ),
     })
 
@@ -96,8 +104,20 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
       },
     })
 
-    return object
+    // Slugify tags after generation (transforms can't be in JSON Schema)
+    const result = {
+      ...object,
+      tags: object.tags?.map(tag => slugify(tag)),
+    }
+
+    log.info(`Content generated successfully for: ${tool.name}`, {
+      tagline: result.tagline,
+      tagsCount: result.tags?.length,
+    })
+
+    return result
   } catch (error) {
+    log.error(`Failed to generate content for: ${tool.name}`, { error: getErrorMessage(error) })
     throw new Error(getErrorMessage(error))
   }
 }
@@ -108,7 +128,7 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
  * @returns The launch tweet.
  */
 export const generateLaunchTweet = async (tool: Tool | Jsonify<Tool>) => {
-  const model = google("gemini-2.5-flash")
+  const model = geminiFlashModel
 
   const { object } = await generateObject({
     model,

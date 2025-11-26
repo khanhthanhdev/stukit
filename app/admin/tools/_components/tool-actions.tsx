@@ -11,7 +11,7 @@ import { toast } from "sonner"
 import { useServerAction } from "zsa-react"
 import { ToolsDeleteDialog } from "~/app/admin/tools/_components/tools-delete-dialog"
 import { ToolsScheduleDialog } from "~/app/admin/tools/_components/tools-schedule-dialog"
-import { reuploadToolAssets } from "~/app/admin/tools/_lib/actions"
+import { processTools, reuploadToolAssets } from "~/app/admin/tools/_lib/actions"
 import { Button } from "~/components/admin/ui/button"
 
 import {
@@ -36,6 +36,16 @@ export const ToolActions = ({ tool, row, className, ...props }: ToolActionsProps
   const { execute: reuploadAssetsAction } = useServerAction(reuploadToolAssets, {
     onSuccess: () => {
       toast.success("Tool assets reuploaded")
+    },
+
+    onError: ({ err }) => {
+      toast.error(err.message)
+    },
+  })
+
+  const { execute: processToolsAction, isPending: isProcessing } = useServerAction(processTools, {
+    onSuccess: () => {
+      toast.success("Tool processing started")
     },
 
     onError: ({ err }) => {
@@ -95,6 +105,14 @@ export const ToolActions = ({ tool, row, className, ...props }: ToolActionsProps
               Schedule
             </DropdownMenuItem>
           )}
+
+          <DropdownMenuItem
+            onSelect={() => processToolsAction({ ids: [tool.id] })}
+            disabled={isProcessing}
+            className="text-blue-600"
+          >
+            Process
+          </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={() => reuploadAssetsAction({ id: tool.id })}>
             Reupload Assets

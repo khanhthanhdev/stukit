@@ -24,12 +24,15 @@ export const env = createEnv({
     SCREENSHOTONE_ACCESS_KEY: z.string().min(1),
     OPENAI_API_KEY: z.string().min(1),
     ANTHROPIC_API_KEY: z.string().min(1),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
     FIRECRAWL_API_KEY: z.string().min(1),
     RESEND_API_KEY: z.string().min(1),
     S3_BUCKET: z.string().min(1),
     S3_REGION: z.string().min(1),
     S3_ACCESS_KEY: z.string().min(1),
     S3_SECRET_ACCESS_KEY: z.string().min(1),
+    QDRANT_URL: z.string().url().min(1),
+    QDRANT_API_KEY: z.string().min(1),
   },
 
   /**

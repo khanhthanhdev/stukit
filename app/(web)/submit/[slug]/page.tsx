@@ -97,7 +97,7 @@ export default async function SubmitPackages({ params, searchParams }: PageProps
         <IntroDescription>{description}</IntroDescription>
       </Intro>
 
-      {success && (
+      {/* {success && (
         <Image
           src={`${config.media.staticHost}/3d-heart.webp`}
           alt=""
@@ -105,7 +105,7 @@ export default async function SubmitPackages({ params, searchParams }: PageProps
           width={256}
           height={228}
         />
-      )}
+      )} */}
 
       <div className="flex justify-center">
         <SubmitProducts tool={tool} />

@@ -2,8 +2,8 @@
 
 import { slugify } from "@curiousleaf/utils"
 import { createServerAction } from "zsa"
+import { validateLink } from "~/lib/link-validator"
 import { submitToolSchema } from "~/server/schemas"
-import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
 
 /**
@@ -36,6 +36,16 @@ export const submitTool = createServerAction()
   .handler(async ({ input }) => {
     const data = input
 
+    // Validate that the link is reachable
+    const linkValidation = await validateLink(data.websiteUrl)
+    if (!linkValidation.isValid) {
+      throw new Error(
+        linkValidation.error === "URL points to private/internal network"
+          ? "Invalid URL: cannot submit internal/private network addresses"
+          : `We couldn't reach this link: ${linkValidation.error}`,
+      )
+    }
+
     // Check if the tool already exists
     const existingTool = await prisma.tool.findFirst({
       where: { websiteUrl: data.websiteUrl },
@@ -54,8 +64,6 @@ export const submitTool = createServerAction()
       data: { ...data, slug },
     })
 
-    // Send an event to the Inngest pipeline
-    await inngest.send({ name: "tool.submitted", data: { slug } })
-
+    // Tool is saved to queue - admin will trigger pipeline via "Process" action
     return tool
   })

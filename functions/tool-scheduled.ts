@@ -4,6 +4,7 @@ import { sendEmails } from "~/lib/email"
 import { generateContent } from "~/lib/generate-content"
 import { uploadFavicon, uploadScreenshot } from "~/lib/media"
 import { getSocialsFromUrl } from "~/lib/socials"
+import { upsertToolVector } from "~/lib/vector-store"
 import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
 
@@ -71,6 +72,18 @@ export const toolScheduled = inngest.createFunction(
         })
       }),
     ])
+
+    await step.run("sync-tool-vector", async () => {
+      const latestTool = await prisma.tool.findUniqueOrThrow({
+        where: { id: tool.id },
+        include: {
+          categories: { select: { slug: true, name: true } },
+          tags: { select: { slug: true } },
+        },
+      })
+
+      await upsertToolVector(latestTool)
+    })
 
     // Disconnect from DB
     await step.run("disconnect-from-db", async () => {

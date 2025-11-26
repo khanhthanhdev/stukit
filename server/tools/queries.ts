@@ -1,9 +1,19 @@
 import type { Prisma } from "@prisma/client"
 import type { SearchParams } from "nuqs/server"
 import { auth } from "~/lib/auth"
+import { type ToolVectorMatch, searchToolVectors } from "~/lib/vector-store"
 import { toolManyPayload, toolOnePayload } from "~/server/tools/payloads"
-import { searchParamsCache } from "~/server/tools/search-params"
+import { type SearchMode, searchParamsCache } from "~/server/tools/search-params"
 import { prisma } from "~/services/prisma"
+
+const RRF_K = 60
+
+const computeRRFScore = (keywordRank: number | null, semanticRank: number | null): number => {
+  let score = 0
+  if (keywordRank !== null) score += 1 / (RRF_K + keywordRank)
+  if (semanticRank !== null) score += 1 / (RRF_K + semanticRank)
+  return score
+}
 
 export const searchTools = async (
   searchParams: SearchParams,
@@ -46,6 +56,63 @@ export const searchTools = async (
   ])
 
   return { tools, totalCount }
+}
+
+export const searchToolsHybrid = async (
+  searchParams: SearchParams,
+  { where, ...args }: Prisma.ToolFindManyArgs = {},
+) => {
+  const { q, category, page, perPage } = searchParamsCache.parse(searchParams)
+
+  if (!q) {
+    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+  }
+
+  const offset = (page - 1) * perPage
+  const matches = await searchToolVectors(q, {
+    category: category || undefined,
+    limit: perPage,
+    offset,
+  })
+
+  if (!matches.length) {
+    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+  }
+
+  const ids = matches.map(match => match.payload.id)
+  const categoryFilter: Prisma.ToolWhereInput | undefined = category
+    ? { categories: { some: { slug: category } } }
+    : undefined
+
+  const prismaTools = await prisma.tool.findMany({
+    ...args,
+    where: {
+      id: { in: ids },
+      publishedAt: { lte: new Date() },
+      ...categoryFilter,
+      ...where,
+    },
+    include: toolManyPayload,
+  })
+
+  const toolMap = new Map(prismaTools.map(tool => [tool.id, tool]))
+
+  const ordered = matches
+    .map(match => {
+      const tool = toolMap.get(match.payload.id)
+      if (!tool) return null
+
+      return { tool, match }
+    })
+    .filter((entry): entry is { tool: (typeof prismaTools)[number]; match: ToolVectorMatch } =>
+      Boolean(entry),
+    )
+
+  return {
+    tools: ordered.map(entry => entry.tool),
+    totalCount: ordered.length,
+    matches: ordered.map(entry => entry.match),
+  }
 }
 
 export const findTools = async ({ where, ...args }: Prisma.ToolFindManyArgs) => {
@@ -94,4 +161,106 @@ export const findFirstTool = async ({ where, ...args }: Prisma.ToolFindFirstArgs
     ...args,
     where: { publishedAt: { lte: new Date() }, ...where },
   })
+}
+
+export const searchToolsCombined = async (
+  searchParams: SearchParams,
+  { where, ...args }: Prisma.ToolFindManyArgs = {},
+) => {
+  const { q, category, page, perPage } = searchParamsCache.parse(searchParams)
+
+  if (!q) {
+    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+  }
+
+  const categoryFilter: Prisma.ToolWhereInput | undefined = category
+    ? { categories: { some: { slug: category } } }
+    : undefined
+
+  const keywordWhere: Prisma.ToolWhereInput = {
+    publishedAt: { lte: new Date() },
+    ...categoryFilter,
+    ...where,
+    OR: [
+      { name: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+    ],
+  }
+
+  const [keywordResults, semanticMatches] = await Promise.all([
+    prisma.tool.findMany({
+      ...args,
+      where: keywordWhere,
+      include: toolManyPayload,
+      take: perPage * 2,
+    }),
+    searchToolVectors(q, {
+      category: category || undefined,
+      limit: perPage * 2,
+    }),
+  ])
+
+  const keywordRankMap = new Map(keywordResults.map((tool, idx) => [tool.id, idx + 1]))
+  const semanticRankMap = new Map(semanticMatches.map((match, idx) => [match.payload.id, idx + 1]))
+
+  const allIds = new Set([
+    ...keywordResults.map(t => t.id),
+    ...semanticMatches.map(m => m.payload.id),
+  ])
+
+  const scored = Array.from(allIds).map(id => ({
+    id,
+    score: computeRRFScore(keywordRankMap.get(id) ?? null, semanticRankMap.get(id) ?? null),
+    keywordRank: keywordRankMap.get(id) ?? null,
+    semanticRank: semanticRankMap.get(id) ?? null,
+  }))
+
+  scored.sort((a, b) => b.score - a.score)
+
+  const offset = (page - 1) * perPage
+  const paged = scored.slice(offset, offset + perPage)
+  const pagedIds = paged.map(s => s.id)
+
+  const tools = await prisma.tool.findMany({
+    ...args,
+    where: { id: { in: pagedIds }, publishedAt: { lte: new Date() } },
+    include: toolManyPayload,
+  })
+
+  const toolMap = new Map(tools.map(t => [t.id, t]))
+  const orderedTools = pagedIds.map(id => toolMap.get(id)).filter(Boolean) as typeof tools
+
+  const matchMap = new Map(semanticMatches.map(m => [m.payload.id, m]))
+  const orderedMatches = pagedIds
+    .map(id => matchMap.get(id))
+    .filter((m): m is ToolVectorMatch => Boolean(m))
+
+  return {
+    tools: orderedTools,
+    totalCount: scored.length,
+    matches: orderedMatches,
+  }
+}
+
+export const searchToolsUnified = async (
+  searchParams: SearchParams,
+  args: Prisma.ToolFindManyArgs = {},
+) => {
+  const { mode, q } = searchParamsCache.parse(searchParams)
+  const searchMode = (mode || "keyword") as SearchMode
+
+  if (!q && searchMode !== "keyword") {
+    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+  }
+
+  switch (searchMode) {
+    case "semantic":
+      return searchToolsHybrid(searchParams, args)
+    case "hybrid":
+      return searchToolsCombined(searchParams, args)
+    default: {
+      const result = await searchTools(searchParams, args)
+      return { ...result, matches: [] as ToolVectorMatch[] }
+    }
+  }
 }
