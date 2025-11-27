@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { hostname: `${process.env.S3_BUCKET}.s3.${process.env.S3_REGION}.amazonaws.com` },
-      { hostname: "stukit.s3.ap-southeast-1.amazonaws.com" },
+      { hostname: "stukit-bucket.s3.us-east-1.amazonaws.com" },
+      { hostname: "**.amazonaws.com" },
     ],
   },
 }

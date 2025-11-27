@@ -8,11 +8,36 @@ import { prisma } from "~/services/prisma"
 
 const RRF_K = 60
 
+type SortConfig = {
+  sortBy: keyof Prisma.ToolOrderByWithRelationInput
+  sortOrder: "asc" | "desc"
+}
+
+const DEFAULT_SORT: SortConfig = { sortBy: "publishedAt", sortOrder: "desc" }
+const allowedSortColumns: ReadonlyArray<keyof Prisma.ToolOrderByWithRelationInput> = [
+  "name",
+  "publishedAt",
+  "createdAt",
+  "updatedAt",
+]
+
 const computeRRFScore = (keywordRank: number | null, semanticRank: number | null): number => {
   let score = 0
   if (keywordRank !== null) score += 1 / (RRF_K + keywordRank)
   if (semanticRank !== null) score += 1 / (RRF_K + semanticRank)
   return score
+}
+
+const parseSort = (sort: string): SortConfig => {
+  const [sortBy, sortOrder] = sort.split(".")
+  const order = sortOrder === "asc" || sortOrder === "desc" ? sortOrder : null
+  const isValidColumn = allowedSortColumns.includes(sortBy as SortConfig["sortBy"])
+
+  if (!order || !isValidColumn) {
+    return DEFAULT_SORT
+  }
+
+  return { sortBy: sortBy as SortConfig["sortBy"], sortOrder: order }
 }
 
 export const searchTools = async (
@@ -28,7 +53,7 @@ export const searchTools = async (
   // Column and order to sort by
   // Spliting the sort string by "." to get the column and order
   // Example: "title.desc" => ["title", "desc"]
-  const [sortBy, sortOrder] = sort.split(".")
+  const { sortBy, sortOrder } = parseSort(sort)
 
   const whereQuery: Prisma.ToolWhereInput = {
     ...(category && { categories: { some: { slug: category } } }),

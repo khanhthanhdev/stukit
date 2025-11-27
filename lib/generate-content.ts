@@ -88,6 +88,7 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
       //   ${categories.map(({ name }) => name).join("\n")}
       // `,
       temperature: 0.3,
+      experimental_telemetry: { isEnabled: true },
       // Google-specific provider options for Gemini models
       providerOptions: {
         google: {
@@ -157,6 +158,7 @@ export const generateLaunchTweet = async (tool: Tool | Jsonify<Tool>) => {
       X Handle: "${tool.xHandle}"
       Link: "${config.site.url}/tools/${tool.slug}"
     `,
+    experimental_telemetry: { isEnabled: true },
   })
 
   return object

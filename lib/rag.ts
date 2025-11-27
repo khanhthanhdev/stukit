@@ -58,6 +58,7 @@ export const answerToolQuestion = async (
 Use the provided context snippets. Cite the tool slug inline whenever you reference it.
 If the context does not contain an answer, say you don't know.`,
     prompt: `Context:\n${formattedContext}\n\nQuestion: ${question}\nAnswer:`,
+    experimental_telemetry: { isEnabled: true },
   })
 
   return {

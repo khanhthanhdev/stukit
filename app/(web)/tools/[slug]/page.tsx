@@ -10,6 +10,7 @@ import { ToolLink } from "~/app/(web)/tools/[slug]/tool-link"
 import { H2, H6 } from "~/components/common/heading"
 import { Markdown } from "~/components/common/markdown"
 import { Stack } from "~/components/common/stack"
+import { ToolContextSetter } from "~/components/web/ai-chat"
 import { Nav } from "~/components/web/nav"
 import { Badge } from "~/components/web/ui/badge"
 import { FaviconImage } from "~/components/web/ui/favicon"
@@ -78,6 +79,7 @@ export default async function ToolPage({ params }: PageProps) {
 
   return (
     <>
+      <ToolContextSetter slug={tool.slug} name={tool.name} />
       <Wrapper size="sm">
         <div className="flex w-full flex-col items-start gap-y-4">
           <Stack size="lg" className="relative w-full justify-between">

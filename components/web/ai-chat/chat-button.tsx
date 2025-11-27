@@ -4,10 +4,7 @@ import { MessageCircleIcon } from "lucide-react"
 import { useChatContext } from "./chat-context"
 
 export function ChatButton() {
-  const { isOpen, toggleChat } = useChatContext()
-
-  // Button is hidden when modal is open
-  if (isOpen) return null
+  const { toggleChat } = useChatContext()
 
   return (
     <button

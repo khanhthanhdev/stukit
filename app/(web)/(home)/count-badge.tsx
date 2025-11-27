@@ -14,7 +14,7 @@ export const CountBadge = async () => {
 
   return (
     <Badge size="lg" prefix={<Ping />} className="order-first" asChild>
-      <Link href="/tools?sort=publishedAt_desc">
+      <Link href="/tools?sort=publishedAt.desc">
         {newToolsCount
           ? `${formatNumber(newToolsCount)} new ${plur("tool", newToolsCount)} added`
           : `${formatNumber(toolsCount)}+ tools collected`}

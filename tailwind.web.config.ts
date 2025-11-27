@@ -8,6 +8,7 @@ export default {
     "./components/web/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/*.{js,ts,jsx,tsx,mdx}",
     "./app/(web)/**/*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/streamdown/dist/*.js",
   ],
 
   theme: {

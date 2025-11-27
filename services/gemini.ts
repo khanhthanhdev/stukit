@@ -50,6 +50,7 @@ export const generateGeminiEmbedding = async (
     model: geminiEmbeddingModel,
     value,
     providerOptions,
+    experimental_telemetry: { isEnabled: true },
   })
 
   return embedding

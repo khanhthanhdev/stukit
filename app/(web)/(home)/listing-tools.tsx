@@ -7,7 +7,16 @@ import { Button } from "~/components/web/ui/button"
 import { findTools } from "~/server/tools/queries"
 
 export const ListingTools = async () => {
-  const tools = await findTools({ where: { isFeatured: true } })
+  const featuredTools = await findTools({
+    where: { isFeatured: true },
+    orderBy: { publishedAt: "desc" },
+    take: 6,
+  })
+
+  const tools =
+    featuredTools.length > 0
+      ? featuredTools
+      : await findTools({ orderBy: { publishedAt: "desc" }, take: 6 })
 
   if (!tools.length) {
     return null
@@ -16,8 +25,8 @@ export const ListingTools = async () => {
   return (
     <Stack direction="column" className="gap-y-6">
       <Listing>
-        {tools.map((tool, i) => (
-          <ToolCard key={i} tool={tool} showBadges={false} />
+        {tools.map(tool => (
+          <ToolCard key={tool.id} tool={tool} showBadges={false} />
         ))}
       </Listing>
 

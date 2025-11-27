@@ -25,10 +25,11 @@ export const FaviconImage = ({ className, src, title, ...props }: FaviconProps) 
     <Image
       alt={`Favicon of ${title} website`}
       loading="lazy"
-      width="64"
-      height="64"
+      width={64}
+      height={64}
       className={cx("aspect-square size-9 rounded-[inherit]", className)}
       src={src}
+      unoptimized
       {...props}
     />
   )
