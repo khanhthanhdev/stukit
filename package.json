@@ -14,6 +14,8 @@
     "db:studio": "prisma studio",
     "db:push": "prisma db push --skip-generate",
     "db:reset": "prisma migrate reset --skip-seed && prisma db push --skip-generate",
+    "qdrant:setup": "bun run scripts/setup-qdrant.ts",
+    "qdrant:reset": "bun run scripts/setup-qdrant.ts --force",
     "postinstall": "bun run db:generate"
   },
   "dependencies": {

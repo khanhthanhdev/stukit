@@ -9,7 +9,7 @@ import { generateContent } from "~/lib/generate-content"
 import { logger } from "~/lib/logger"
 import { uploadFavicon, uploadScreenshot } from "~/lib/media"
 import { authedProcedure } from "~/lib/safe-actions"
-import { upsertToolVector } from "~/lib/vector-store"
+import { deleteToolVector, upsertToolVector } from "~/lib/vector-store"
 import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
 
@@ -29,9 +29,17 @@ export const createTool = authedProcedure
         collections: { connect: collections?.map(id => ({ id })) },
         tags: { connect: tags?.map(id => ({ id })) },
       },
+      include: {
+        categories: { select: { slug: true, name: true } },
+        tags: { select: { slug: true } },
+      },
     })
 
     revalidatePath("/admin/tools")
+
+    // Sync to Qdrant vector store
+    await upsertToolVector(tool)
+    log.info(`Vector synced for new tool: ${tool.slug}`)
 
     // Send an event to the Inngest pipeline
     if (tool.publishedAt) {
@@ -60,10 +68,18 @@ export const updateTool = authedProcedure
         collections: { set: collections?.map(id => ({ id })) },
         tags: { set: tags?.map(id => ({ id })) },
       },
+      include: {
+        categories: { select: { slug: true, name: true } },
+        tags: { select: { slug: true } },
+      },
     })
 
     revalidatePath("/admin/tools")
     revalidatePath(`/admin/tools/${tool.slug}`)
+
+    // Sync to Qdrant vector store
+    await upsertToolVector(tool)
+    log.info(`Vector synced for updated tool: ${tool.slug}`)
 
     if (!previous.publishedAt && tool.publishedAt) {
       await inngest.send({ name: "tool.scheduled", data: { slug: tool.slug } })
@@ -81,6 +97,19 @@ export const updateTools = authedProcedure
       data,
     })
 
+    // Fetch updated tools and sync to vector store
+    const updatedTools = await prisma.tool.findMany({
+      where: { id: { in: ids } },
+      include: {
+        categories: { select: { slug: true, name: true } },
+        tags: { select: { slug: true } },
+      },
+    })
+
+    // Sync all updated tools to Qdrant
+    await Promise.all(updatedTools.map(tool => upsertToolVector(tool)))
+    log.info(`Vector synced for ${updatedTools.length} tools`)
+
     revalidatePath("/admin/tools")
 
     return true
@@ -92,8 +121,12 @@ export const deleteTools = authedProcedure
   .handler(async ({ input: { ids } }) => {
     const tools = await prisma.tool.findMany({
       where: { id: { in: ids } },
-      select: { slug: true },
+      select: { id: true, slug: true },
     })
+
+    // Delete from Qdrant vector store first
+    await Promise.all(tools.map(tool => deleteToolVector(tool.id)))
+    log.info(`Vectors deleted for ${tools.length} tools`)
 
     await prisma.tool.deleteMany({
       where: { id: { in: ids } },
@@ -103,7 +136,7 @@ export const deleteTools = authedProcedure
 
     // Send an event to the Inngest pipeline
     for (const tool of tools) {
-      await inngest.send({ name: "tool.deleted", data: { slug: tool.slug } })
+      await inngest.send({ name: "tool.deleted", data: { id: tool.id, slug: tool.slug } })
     }
 
     return true

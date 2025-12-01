@@ -1,6 +1,6 @@
 import { type UIMessage, convertToModelMessages, streamText } from "ai"
 import { z } from "zod"
-import { retrieveToolContext } from "~/lib/rag"
+import { retrieveToolContextWithRouting } from "~/lib/rag"
 import { geminiFlashModel, geminiGoogleSearchTool } from "~/services/gemini"
 
 export const maxDuration = 30
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const lastUserMessage = messages.findLast(m => m.role === "user")
     const query = lastUserMessage ? getMessageText(lastUserMessage) : ""
 
-    const context = await retrieveToolContext(query, {
+    const { context } = await retrieveToolContextWithRouting(query, {
       limit: 5,
     })
 

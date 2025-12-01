@@ -1,7 +1,7 @@
 import { EventSchemas, Inngest } from "inngest"
 import { config } from "~/config"
 
-type ToolEventData = { slug: string }
+type ToolEventData = { id: string; slug: string }
 
 type Events = {
   "tool.submitted": { data: ToolEventData }
