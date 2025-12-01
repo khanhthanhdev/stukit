@@ -1,4 +1,4 @@
-![DevSuite](https://devsuite.s3.us-east-1.amazonaws.com/screenshot.webp)
+![AI Knowledge Cloud](https://devsuite.s3.us-east-1.amazonaws.com/screenshot.webp)
 
 <p align="center"></p>
 
@@ -28,7 +28,7 @@
 
 ## About this project
 
-DevSuite is a **free, curated collection of the best developer tools** designed to improve your productivity when building your next project.
+AI Knowledge Cloud is a **free, curated collection of the best developer tools** designed to improve your productivity when building your next project.
 
 In today's fast-paced tech world, keeping up with the **constant stream of new software development tools** can be challenging. That's where DevSuite comes in. The mission is simple: to help developers like you find the perfect tools to improve your workflow and bring your ideas to life more efficiently.
 

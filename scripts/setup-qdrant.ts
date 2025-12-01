@@ -34,9 +34,9 @@ async function createHybridCollection() {
       },
     },
   })
-  console.log(`✅ Collection created with:`)
-  console.log(`   - Dense vectors: ${QDRANT_DENSE_VECTOR_SIZE} dimensions (Cosine)`)
-  console.log(`   - Sparse vectors: BM25-style (in-memory index)`)
+  console.log("✅ Collection created with:")
+  console.log("   - Dense vectors:", QDRANT_DENSE_VECTOR_SIZE, "dimensions (Cosine)")
+  console.log("   - Sparse vectors: BM25-style (in-memory index)")
 }
 
 async function main() {
@@ -53,8 +53,8 @@ async function main() {
 
     // Get collection info
     const info = await qdrantClient.getCollection(QDRANT_HYBRID_COLLECTION)
-    console.log(`   - Points count: ${info.points_count}`)
-    console.log(`   - Vectors count: ${info.vectors_count}`)
+    console.log("   - Points count:", info.points_count)
+    console.log("   - Indexed vectors count:", info.indexed_vectors_count)
 
     const shouldReindex = await askForReindex()
     if (!shouldReindex) {
@@ -115,9 +115,9 @@ async function main() {
 
   // Verify final state
   const finalInfo = await qdrantClient.getCollection(QDRANT_HYBRID_COLLECTION)
-  console.log(`\n📦 Final collection state:`)
-  console.log(`   - Points: ${finalInfo.points_count}`)
-  console.log(`   - Status: ${finalInfo.status}`)
+  console.log("\n📦 Final collection state:")
+  console.log("   - Points:", finalInfo.points_count)
+  console.log("   - Status:", finalInfo.status)
 
   console.log("\n✨ Done!")
 }

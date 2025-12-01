@@ -18,7 +18,7 @@ export const createCategory = authedProcedure
         slug: input.slug || slugify(input.name),
 
         // Relations
-        tools: { connect: tools?.map(id => ({ id })) },
+        tools: { connect: tools?.map((id: string) => ({ id })) },
       },
     })
 
@@ -37,7 +37,7 @@ export const updateCategory = authedProcedure
         ...input,
 
         // Relations
-        tools: { set: tools?.map(id => ({ id })) },
+        tools: { set: tools?.map((id: string) => ({ id })) },
       },
     })
 

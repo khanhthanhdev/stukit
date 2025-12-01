@@ -95,21 +95,7 @@ export const Footer = ({ children, className, ...props }: HTMLAttributes<HTMLEle
           <NavigationLink href="/tags">Tags</NavigationLink>
         </Stack>
 
-        <Stack className="gap-x-4 text-sm/normal flex-col items-start md:col-span-3">
-          <H6 as="strong">Other Products:</H6>
-
-          {config.links.family.map(link => (
-            <NavigationLink
-              key={link.href}
-              href={addUTMTracking(link.href, { source: config.site.name.toLowerCase() })}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={link.description}
-            >
-              {link.title}
-            </NavigationLink>
-          ))}
-        </Stack>
+        
       </div>
 
       <div className="flex flex-row flex-wrap items-end justify-between gap-x-4 gap-y-2 w-full">
@@ -128,7 +114,7 @@ export const Footer = ({ children, className, ...props }: HTMLAttributes<HTMLEle
             decoding="async"
             className="max-sm:hidden size-4 rounded-full"
           /> */}
-          Made by Piotr Kulpinski
+          Made by VinUni Library Team
         </NavigationLink>
 
         <p className="text-xs text-foreground/50">This website may contain affiliate links</p>

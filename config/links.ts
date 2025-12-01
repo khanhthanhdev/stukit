@@ -2,10 +2,10 @@ import { env } from "~/env"
 
 export const linksConfig = {
   feed: `${env.NEXT_PUBLIC_SITE_URL}/rss.xml`,
-  author: "https://kulpinski.pl",
-  twitter: "https://x.com/devsuiteco",
-  github: "https://github.com/piotrkulpinski/devsuite",
-  producthunt: "https://www.producthunt.com/posts/devsuite",
+  author: "https://khanhthanh.is-a.dev/",
+  twitter: "#",
+  github: "https://github.com/khanhthanhdev",
+  producthunt: "#",
   family: [
     {
       title: "OpenAlternative",

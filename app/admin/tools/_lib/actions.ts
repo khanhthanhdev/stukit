@@ -25,9 +25,9 @@ export const createTool = authedProcedure
         slug: input.slug || slugify(input.name),
 
         // Relations
-        categories: { connect: categories?.map(id => ({ id })) },
-        collections: { connect: collections?.map(id => ({ id })) },
-        tags: { connect: tags?.map(id => ({ id })) },
+        categories: { connect: categories?.map((id: string) => ({ id })) },
+        collections: { connect: collections?.map((id: string) => ({ id })) },
+        tags: { connect: tags?.map((id: string) => ({ id })) },
       },
       include: {
         categories: { select: { slug: true, name: true } },
@@ -43,7 +43,7 @@ export const createTool = authedProcedure
 
     // Send an event to the Inngest pipeline
     if (tool.publishedAt) {
-      await inngest.send({ name: "tool.scheduled", data: { slug: tool.slug } })
+      await inngest.send({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
     }
 
     return tool
@@ -64,9 +64,9 @@ export const updateTool = authedProcedure
         ...input,
 
         // Relations
-        categories: { set: categories?.map(id => ({ id })) },
-        collections: { set: collections?.map(id => ({ id })) },
-        tags: { set: tags?.map(id => ({ id })) },
+        categories: { set: categories?.map((id: string) => ({ id })) },
+        collections: { set: collections?.map((id: string) => ({ id })) },
+        tags: { set: tags?.map((id: string) => ({ id })) },
       },
       include: {
         categories: { select: { slug: true, name: true } },
@@ -82,7 +82,7 @@ export const updateTool = authedProcedure
     log.info(`Vector synced for updated tool: ${tool.slug}`)
 
     if (!previous.publishedAt && tool.publishedAt) {
-      await inngest.send({ name: "tool.scheduled", data: { slug: tool.slug } })
+      await inngest.send({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
     }
 
     return tool
@@ -148,7 +148,7 @@ export const scheduleTools = authedProcedure
   .handler(async ({ input: { ids, publishedAt } }) => {
     const tools = await prisma.tool.findMany({
       where: { id: { in: ids } },
-      select: { slug: true },
+      select: { id: true, slug: true },
     })
 
     await prisma.tool.updateMany({
@@ -160,7 +160,7 @@ export const scheduleTools = authedProcedure
 
     // Send an event to the Inngest pipeline
     for (const tool of tools) {
-      await inngest.send({ name: "tool.scheduled", data: { slug: tool.slug } })
+      await inngest.send({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
     }
 
     return true
@@ -270,7 +270,7 @@ export const processTools = authedProcedure
     if (process.env.NODE_ENV === "production") {
       log.info("Running in production mode - sending to Inngest")
       for (const tool of tools) {
-        await inngest.send({ name: "tool.submitted", data: { slug: tool.slug } })
+        await inngest.send({ name: "tool.submitted", data: { id: tool.id, slug: tool.slug } })
         log.debug(`Sent tool.submitted event for: ${tool.slug}`)
       }
     } else {

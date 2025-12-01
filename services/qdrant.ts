@@ -68,7 +68,7 @@ export const ensureHybridCollection = async () => {
             },
           },
         })
-        console.log(`Hybrid collection created successfully`)
+        console.log('Hybrid collection created successfully')
       }
     })()
   }

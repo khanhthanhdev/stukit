@@ -156,13 +156,13 @@ export function ChatDialog() {
           )}
         >
           <DialogPrimitive.Title className="sr-only">
-            DevSuite Assistant Chat
+            AI Knowledge Cloud Assistant Chat
           </DialogPrimitive.Title>
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border bg-foreground/5 px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="size-2.5 rounded-full bg-green-500" />
-              <span className="font-semibold text-lg">DevSuite Assistant</span>
+              <span className="font-semibold text-lg">AI Knowledge Cloud Assistant</span>
               {currentTool && (
                 <span className="rounded-full bg-foreground/10 px-3 py-1 text-xs text-muted-foreground">
                   {currentTool.name}
