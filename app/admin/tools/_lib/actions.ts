@@ -10,7 +10,7 @@ import { logger } from "~/lib/logger"
 import { uploadFavicon, uploadScreenshot } from "~/lib/media"
 import { authedProcedure } from "~/lib/safe-actions"
 import { deleteToolVector, upsertToolVector } from "~/lib/vector-store"
-import { inngest } from "~/services/inngest"
+import { sendInngestEvent } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
 
 const log = logger.action
@@ -43,7 +43,8 @@ export const createTool = authedProcedure
 
     // Send an event to the Inngest pipeline
     if (tool.publishedAt) {
-      await inngest.send({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
+      log.info(`Sending tool.scheduled event for tool: ${tool.slug}`)
+      await sendInngestEvent({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
     }
 
     return tool
@@ -82,7 +83,8 @@ export const updateTool = authedProcedure
     log.info(`Vector synced for updated tool: ${tool.slug}`)
 
     if (!previous.publishedAt && tool.publishedAt) {
-      await inngest.send({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
+      log.info(`Sending tool.scheduled event for newly published tool: ${tool.slug}`)
+      await sendInngestEvent({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
     }
 
     return tool
@@ -135,8 +137,11 @@ export const deleteTools = authedProcedure
     revalidatePath("/admin/tools")
 
     // Send an event to the Inngest pipeline
+    log.info(`Sending tool.deleted events for ${tools.length} tool(s)`, {
+      slugs: tools.map(t => t.slug),
+    })
     for (const tool of tools) {
-      await inngest.send({ name: "tool.deleted", data: { id: tool.id, slug: tool.slug } })
+      await sendInngestEvent({ name: "tool.deleted", data: { id: tool.id, slug: tool.slug } })
     }
 
     return true
@@ -159,8 +164,12 @@ export const scheduleTools = authedProcedure
     revalidatePath("/admin/tools")
 
     // Send an event to the Inngest pipeline
+    log.info(`Sending tool.scheduled events for ${tools.length} tool(s)`, {
+      slugs: tools.map(t => t.slug),
+      publishedAt,
+    })
     for (const tool of tools) {
-      await inngest.send({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
+      await sendInngestEvent({ name: "tool.scheduled", data: { id: tool.id, slug: tool.slug } })
     }
 
     return true
@@ -268,9 +277,15 @@ export const processTools = authedProcedure
     log.info(`Found ${tools.length} tools to process`, { slugs: tools.map(t => t.slug) })
 
     if (process.env.NODE_ENV === "production") {
-      log.info("Running in production mode - sending to Inngest")
+      log.info("Running in production mode - sending to Inngest", {
+        toolCount: tools.length,
+        slugs: tools.map(t => t.slug),
+      })
       for (const tool of tools) {
-        await inngest.send({ name: "tool.submitted", data: { id: tool.id, slug: tool.slug } })
+        await sendInngestEvent({
+          name: "tool.submitted",
+          data: { id: tool.id, slug: tool.slug },
+        })
         log.debug(`Sent tool.submitted event for: ${tool.slug}`)
       }
     } else {

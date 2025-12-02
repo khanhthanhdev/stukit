@@ -94,3 +94,143 @@ export const logger = {
   media: createLogger("media"),
   inngest: createLogger("inngest"),
 }
+
+// Inngest-specific logger helpers
+export const inngestLogger = {
+  ...logger.inngest,
+
+  // Log event trigger
+  eventTriggered: (eventName: string, data: { id?: string; slug?: string }) => {
+    logger.inngest.info(`Event triggered: ${eventName}`, {
+      event: eventName,
+      toolId: data.id,
+      toolSlug: data.slug,
+    })
+  },
+
+  // Log function execution start
+  functionStarted: (
+    functionId: string,
+    eventName: string,
+    data: { id?: string; slug?: string },
+  ) => {
+    logger.inngest.info(`Function started: ${functionId}`, {
+      functionId,
+      event: eventName,
+      toolId: data.id,
+      toolSlug: data.slug,
+    })
+  },
+
+  // Log function execution completion
+  functionCompleted: (
+    functionId: string,
+    eventName: string,
+    data: { id?: string; slug?: string },
+    durationMs: number,
+  ) => {
+    logger.inngest.info(`Function completed: ${functionId}`, {
+      functionId,
+      event: eventName,
+      toolId: data.id,
+      toolSlug: data.slug,
+      durationMs: durationMs.toFixed(2),
+    })
+  },
+
+  // Log function execution error
+  functionError: (
+    functionId: string,
+    eventName: string,
+    data: { id?: string; slug?: string },
+    error: unknown,
+    durationMs?: number,
+  ) => {
+    const errorData: Record<string, unknown> = {
+      functionId,
+      event: eventName,
+      toolId: data.id,
+      toolSlug: data.slug,
+      error: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+    }
+
+    if (durationMs !== undefined) {
+      errorData.durationMs = durationMs.toFixed(2)
+    }
+
+    logger.inngest.error(`Function failed: ${functionId}`, errorData)
+  },
+
+  // Log step execution
+  stepStarted: (stepName: string, functionId: string, toolSlug?: string) => {
+    logger.inngest.debug(`Step started: ${stepName}`, {
+      step: stepName,
+      functionId,
+      toolSlug,
+    })
+  },
+
+  // Log step completion
+  stepCompleted: (
+    stepName: string,
+    functionId: string,
+    toolSlug?: string,
+    durationMs?: number,
+  ) => {
+    logger.inngest.info(`Step completed: ${stepName}`, {
+      step: stepName,
+      functionId,
+      toolSlug,
+      ...(durationMs !== undefined && { durationMs: durationMs.toFixed(2) }),
+    })
+  },
+
+  // Log step error
+  stepError: (
+    stepName: string,
+    functionId: string,
+    toolSlug: string | undefined,
+    error: unknown,
+  ) => {
+    logger.inngest.error(`Step failed: ${stepName}`, {
+      step: stepName,
+      functionId,
+      toolSlug,
+      error: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+    })
+  },
+
+  // Log waitForEvent result
+  waitForEventResult: (
+    eventName: string,
+    functionId: string,
+    toolSlug: string,
+    received: boolean,
+    timeout?: boolean,
+  ) => {
+    logger.inngest.info(`Wait for event result: ${eventName}`, {
+      waitedFor: eventName,
+      functionId,
+      toolSlug,
+      received,
+      timeout: timeout ?? false,
+    })
+  },
+
+  // Log batch processing
+  batchProcessed: (
+    batchIndex: number,
+    batchSize: number,
+    totalProcessed: number,
+    functionId: string,
+  ) => {
+    logger.inngest.info(`Batch processed: ${batchIndex}`, {
+      batchIndex,
+      batchSize,
+      totalProcessed,
+      functionId,
+    })
+  },
+}
