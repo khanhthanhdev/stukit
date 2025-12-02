@@ -1,7 +1,8 @@
-import { generateObject } from "ai"
+import { cosineSimilarity } from "ai"
 import { z } from "zod"
 import { createLogger } from "~/lib/logger"
-import { geminiFlashModel } from "~/services/gemini"
+import { generateGeminiEmbedding } from "~/services/gemini"
+import { QDRANT_DENSE_VECTOR_SIZE } from "~/services/qdrant"
 
 const log = createLogger("query-router")
 
@@ -26,35 +27,97 @@ export const QueryIntentSchema = z.object({
 export type QueryIntent = z.infer<typeof QueryIntentSchema>
 
 /**
- * Routes a user query to the appropriate retrieval strategy
- * Uses Gemini 2.5 Flash with temperature 0 for deterministic classification
+ * Semantic router that classifies queries into intents using pure vector math.
+ * No LLM is called for routing; we rely on cosine similarity against a small
+ * set of intent prototypes.
  */
 export const routeQuery = async (query: string): Promise<QueryIntent> => {
   log.debug(`Routing query: ${query}`)
 
-  const { object } = await generateObject({
-    model: geminiFlashModel,
-    schema: QueryIntentSchema,
-    temperature: 0, // Deterministic for classification
-    system: `You are a query intent classifier for an AI tools directory.
-Classify user queries into one of three intents:
+  const normalized = query.trim()
+  if (!normalized) {
+    const fallback: QueryIntent = {
+      intent: "search",
+      confidence: 0,
+      reasoning: "Empty query; defaulting to search intent.",
+    }
+    log.info(`Query routed (empty): intent=${fallback.intent}, confidence=${fallback.confidence}`)
+    return fallback
+  }
 
-1. **recommendation**: User wants suggestions for tools that match their needs, use case, or task.
-   Examples: "What's a good tool for generating images?", "Help me find an AI writing assistant", "I need something for code review"
+  const prototypes: Record<QueryIntent["intent"], string[]> = {
+    recommendation: [
+      "recommend tools for my use case",
+      "suggest ai tools for this task",
+      "help me find the best tool",
+      "what is a good tool for this",
+    ],
+    comparison: [
+      "compare these tools",
+      "difference between two tools",
+      "which is better between tools",
+      "vs comparison of tools",
+    ],
+    search: [
+      "find this specific tool",
+      "search for a tool by name",
+      "show me details about this tool",
+      "look up information about this tool",
+    ],
+  }
 
-2. **comparison**: User wants to compare two or more specific tools.
-   Examples: "Compare ChatGPT vs Claude", "What's the difference between Midjourney and DALL-E?", "GitHub Copilot or Cursor?"
-
-3. **search**: User is looking for a specific tool by name, or has very specific criteria.
-   Examples: "Tell me about Cursor", "Is there a tool called Notion AI?", "Show me tools with free tier pricing"
-
-Be precise in your classification. If unsure, lean towards "recommendation" as the default.`,
-    prompt: `Classify this query: "${query}"`,
-    experimental_telemetry: { isEnabled: true },
+  const queryEmbedding = await generateGeminiEmbedding(normalized, {
+    taskType: "CLASSIFICATION",
+    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
   })
 
-  log.info(`Query routed: intent=${object.intent}, confidence=${object.confidence}`)
-  return object
+  const intentScores: Record<QueryIntent["intent"], number> = {
+    recommendation: 0,
+    comparison: 0,
+    search: 0,
+  }
+
+  for (const intent of Object.keys(prototypes) as QueryIntent["intent"][]) {
+    const examples = prototypes[intent]
+    const exampleEmbeddings = await Promise.all(
+      examples.map(example =>
+        generateGeminiEmbedding(example, {
+          taskType: "CLASSIFICATION",
+          outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
+        }),
+      ),
+    )
+
+    const scores = exampleEmbeddings.map(exampleEmbedding =>
+      cosineSimilarity(queryEmbedding, exampleEmbedding),
+    )
+    const maxScore = scores.length ? Math.max(...scores) : 0
+    intentScores[intent] = maxScore
+  }
+
+  // Pick the best intent, with a simple fallback bias towards "recommendation"
+  const intents = Object.keys(intentScores) as QueryIntent["intent"][]
+  let bestIntent: QueryIntent["intent"] = "recommendation"
+  let bestScore = -Infinity
+
+  for (const intent of intents) {
+    const score = intentScores[intent]
+    if (score > bestScore) {
+      bestScore = score
+      bestIntent = intent
+    }
+  }
+
+  const confidence = Number.isFinite(bestScore) ? Math.max(0, Math.min(1, bestScore)) : 0
+
+  const result: QueryIntent = {
+    intent: bestIntent,
+    confidence,
+    reasoning: `Semantic router selected "${bestIntent}" intent based on cosine similarity of the query embedding against intent prototypes.`,
+  }
+
+  log.info(`Query routed: intent=${result.intent}, confidence=${result.confidence.toFixed(3)}`)
+  return result
 }
 
 export default routeQuery

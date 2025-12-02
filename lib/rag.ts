@@ -1,16 +1,13 @@
 import { generateText } from "ai"
-import { routeQuery, type QueryIntent } from "~/lib/query-router"
-import {
-  decomposeComparison,
-  expandQuery,
-  extractSearchMetadata,
-} from "~/lib/query-strategies"
+import type { QueryIntent } from "~/lib/query-router"
+import { fusedRouteQuery } from "~/lib/fused-query-router"
 import type { ToolVectorMatch } from "~/lib/vector-store"
 import {
   hybridSearchToolVectors,
   searchToolsByName,
   searchToolVectors,
 } from "~/lib/vector-store"
+import { findCachedAnswer, storeCachedAnswer } from "~/lib/semantic-cache"
 import { geminiFlashModel } from "~/services/gemini"
 import { createLogger } from "~/lib/logger"
 
@@ -52,6 +49,16 @@ export type RetrievalResult = {
   processedQuery: string
 }
 
+const isSimpleListQuery = (query: string): boolean => {
+  const normalized = query.trim().toLowerCase().replace(/\s+/g, " ")
+  if (!normalized) return false
+
+  const words = normalized.split(" ")
+  if (words.length >= 5) return false
+
+  return words.some(word => word === "list" || word === "show")
+}
+
 /**
  * Advanced context retrieval with query routing and pre-retrieval strategies
  * Routes queries to appropriate retrieval paths based on intent
@@ -68,9 +75,33 @@ export const retrieveToolContextWithRouting = async (
     }
   }
 
-  // Step 1: Route the query to determine intent
-  const intent = await routeQuery(query)
-  log.info(`Query routed: ${intent.intent} (${intent.confidence})`)
+  // Speculative routing "fast-track" for simple list/show queries
+  if (isSimpleListQuery(query)) {
+    log.info("Using speculative routing fast-track for simple list/show query")
+    const context = await hybridSearchToolVectors(query, { limit, category })
+
+    const intent: QueryIntent = {
+      intent: "search",
+      confidence: 1,
+      reasoning:
+        'Speculative routing: query is short and contains "list" or "show", skipping router LLM.',
+    }
+
+    return {
+      context,
+      intent,
+      processedQuery: query,
+    }
+  }
+
+  // Step 1: Route and decompose/expand/extract in a single fused call
+  const fused = await fusedRouteQuery(query)
+  const intent: QueryIntent = {
+    intent: fused.intent,
+    confidence: fused.confidence,
+    reasoning: fused.reasoning,
+  }
+  log.info(`Fused query routed: ${intent.intent} (${intent.confidence})`)
 
   let context: ToolVectorMatch[] = []
   let processedQuery = query
@@ -78,41 +109,63 @@ export const retrieveToolContextWithRouting = async (
   // Step 2: Apply pre-retrieval strategy based on intent
   switch (intent.intent) {
     case "recommendation": {
-      // Expand query with synonyms and related terms
-      processedQuery = await expandQuery(query)
+      // Expand query with synonyms and related terms (from fused router)
+      if (fused.expandedKeywords && fused.expandedKeywords.length > 0) {
+        processedQuery = [query, ...fused.expandedKeywords].join(", ")
+      }
+
       log.debug(`Expanded query: ${processedQuery}`)
       context = await hybridSearchToolVectors(processedQuery, { limit, category })
       break
     }
 
     case "comparison": {
-      // Decompose to get specific tool names
-      const decomposition = await decomposeComparison(query)
-      log.debug(`Comparison tools: ${decomposition.toolNames.join(", ")}`)
+      // Decompose to get specific tool names from fused router
+      const toolNames = fused.toolNames ?? []
+      log.debug(`Comparison tools: ${toolNames.join(", ")}`)
 
-      // First try exact name match
-      context = await searchToolsByName(decomposition.toolNames)
+      if (!toolNames.length) {
+        // Fallback: treat as a generic search if we couldn't extract tool names
+        context = await hybridSearchToolVectors(query, { limit, category })
+        processedQuery = query
+        break
+      }
+
+      // First try exact name match (parallel inside searchToolsByName)
+      context = await searchToolsByName(toolNames)
 
       // If we didn't find all tools, fall back to hybrid search for each
-      if (context.length < decomposition.toolNames.length) {
-        const missingTools = decomposition.toolNames.filter(
+      if (context.length < toolNames.length) {
+        const missingTools = toolNames.filter(
           name => !context.some(c => c.payload.name.toLowerCase() === name.toLowerCase()),
         )
 
-        for (const toolName of missingTools) {
-          const results = await hybridSearchToolVectors(toolName, { limit: 1, category })
-          context.push(...results)
+        if (missingTools.length > 0) {
+          const fallbackResults = await Promise.all(
+            missingTools.map(toolName =>
+              hybridSearchToolVectors(toolName, { limit: 1, category }),
+            ),
+          )
+
+          for (const results of fallbackResults) {
+            context.push(...results)
+          }
         }
       }
 
-      processedQuery = decomposition.toolNames.join(" vs ")
+      processedQuery = toolNames.join(" vs ")
       break
     }
 
     case "search": {
-      // Extract metadata for potential filtering
-      const metadata = await extractSearchMetadata(query)
-      log.debug(`Search metadata: ${JSON.stringify(metadata)}`)
+      // Extracted metadata from fused router for potential filtering
+      const metadata = {
+        toolName: fused.specificToolName,
+        categories: fused.categories,
+        features: fused.features,
+        pricing: fused.pricing,
+      }
+      log.debug(`Search metadata (fused): ${JSON.stringify(metadata)}`)
 
       // If a specific tool name was mentioned, search for it directly
       if (metadata.toolName) {
@@ -157,6 +210,15 @@ export const answerToolQuestion = async (
   question: string,
   options: RagAnswerOptions = {},
 ): Promise<RagAnswer> => {
+  // Zero-latency semantic cache lookup (legacy path)
+  const cached = await findCachedAnswer(question)
+  if (cached) {
+    return {
+      answer: cached.payload.answer,
+      context: cached.payload.context,
+    }
+  }
+
   const context = await retrieveToolContext(question, options)
 
   if (!context.length) {
@@ -183,6 +245,9 @@ If the context does not contain an answer, say you don't know.`,
     experimental_telemetry: { isEnabled: true },
   })
 
+  // Store in semantic cache for future zero-latency retrieval
+  void storeCachedAnswer({ question, answer: text, context })
+
   return {
     answer: text,
     context,
@@ -197,6 +262,22 @@ export const answerToolQuestionAdvanced = async (
   question: string,
   options: RagAnswerOptions = {},
 ): Promise<RagAnswer> => {
+  // Zero-latency semantic cache lookup
+  const cached = await findCachedAnswer(question)
+  if (cached) {
+    log.info("Serving answer from semantic cache (advanced RAG)")
+    return {
+      answer: cached.payload.answer,
+      context: cached.payload.context,
+      intent: {
+        intent: "search",
+        confidence: 1,
+        reasoning:
+          "Returned from semantic cache; original answer and context reused without new LLM calls.",
+      },
+    }
+  }
+
   // Use advanced retrieval with routing
   const { context, intent, processedQuery } = await retrieveToolContextWithRouting(
     question,
@@ -259,6 +340,9 @@ If the context does not contain an answer, say you don't know.`
     prompt: `Context:\n${formattedContext}\n\nQuestion: ${question}\nAnswer:`,
     experimental_telemetry: { isEnabled: true },
   })
+
+  // Store in semantic cache for future zero-latency retrieval
+  void storeCachedAnswer({ question, answer: text, context })
 
   return {
     answer: text,

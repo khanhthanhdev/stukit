@@ -7,6 +7,7 @@ export const qdrantClient = new QdrantClient({
 })
 
 export const QDRANT_TOOLS_COLLECTION = "tools"
+export const QDRANT_SEMANTIC_CACHE_COLLECTION = "semantic_cache"
 // Hybrid collection with separate name
 export const QDRANT_HYBRID_COLLECTION = "tools_hybrid"
 // Dense vector size for gemini-embedding-001 (native 768, or custom)
@@ -39,6 +40,30 @@ export const ensureToolsCollection = async () => {
 }
 
 let ensureHybridCollectionPromise: Promise<void> | null = null
+
+let ensureSemanticCacheCollectionPromise: Promise<void> | null = null
+
+export const ensureSemanticCacheCollection = async () => {
+  if (!ensureSemanticCacheCollectionPromise) {
+    ensureSemanticCacheCollectionPromise = (async () => {
+      const existsResult = await qdrantClient.collectionExists(QDRANT_SEMANTIC_CACHE_COLLECTION)
+      const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
+
+      if (!exists) {
+        console.log(`Creating semantic cache collection: ${QDRANT_SEMANTIC_CACHE_COLLECTION}`)
+        await qdrantClient.createCollection(QDRANT_SEMANTIC_CACHE_COLLECTION, {
+          vectors: {
+            size: QDRANT_DENSE_VECTOR_SIZE,
+            distance: "Cosine",
+          },
+        })
+        console.log("Semantic cache collection created successfully")
+      }
+    })()
+  }
+
+  return ensureSemanticCacheCollectionPromise
+}
 
 /**
  * Ensures the hybrid collection exists with both dense and sparse vector configs

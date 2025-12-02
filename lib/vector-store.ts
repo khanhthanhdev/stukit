@@ -423,9 +423,12 @@ export const searchToolsByName = async (toolNames: string[]): Promise<ToolVector
 
   const results: ToolVectorMatch[] = []
 
-  // Search for each tool name using hybrid search
-  for (const toolName of toolNames) {
-    const matches = await hybridSearchToolVectors(toolName, { limit: 1 })
+  // Search for each tool name in parallel using hybrid search
+  const searchResults = await Promise.all(
+    toolNames.map(toolName => hybridSearchToolVectors(toolName, { limit: 1 })),
+  )
+
+  for (const matches of searchResults) {
     if (matches.length > 0) {
       results.push(matches[0])
     }

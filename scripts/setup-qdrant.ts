@@ -11,6 +11,8 @@ import { prisma } from "~/services/prisma"
 import {
   QDRANT_HYBRID_COLLECTION,
   QDRANT_DENSE_VECTOR_SIZE,
+  QDRANT_SEMANTIC_CACHE_COLLECTION,
+  ensureSemanticCacheCollection,
   qdrantClient,
 } from "~/services/qdrant"
 import { reindexAllHybridTools } from "~/lib/vector-store"
@@ -68,6 +70,12 @@ async function main() {
   } else {
     await createHybridCollection()
   }
+
+  // Step 1b: Ensure semantic cache collection exists
+  console.log("\n📦 Ensuring semantic cache collection...")
+  await ensureSemanticCacheCollection()
+  const semanticInfo = await qdrantClient.getCollection(QDRANT_SEMANTIC_CACHE_COLLECTION)
+  console.log("   - Semantic cache points:", semanticInfo.points_count)
 
   // Step 2: Count tools to index
   console.log("\n📊 Counting published tools...")

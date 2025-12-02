@@ -1,7 +1,7 @@
 import { generateObject, generateText } from "ai"
 import { z } from "zod"
 import { createLogger } from "~/lib/logger"
-import { geminiFlashModel } from "~/services/gemini"
+import { geminiFlashLiteModel } from "~/services/gemini"
 
 const log = createLogger("query-strategies")
 
@@ -9,13 +9,16 @@ const log = createLogger("query-strategies")
  * Query Expansion for "recommendation" intent
  * Expands vague user queries with relevant synonyms and technical terms
  * to improve semantic search coverage
+ *
+ * @deprecated Logic is now handled by fusedRouteQuery in ~/lib/fused-query-router
+ *             to avoid extra LLM round-trips.
  */
 export const expandQuery = async (userTask: string): Promise<string> => {
   log.debug(`Expanding query: ${userTask}`)
 
   try {
     const { text } = await generateText({
-      model: geminiFlashModel,
+      model: geminiFlashLiteModel,
       temperature: 0.3, // Slight creativity for diverse keywords
       system: `You are an AI search optimizer for a developer tools directory.
 Generate relevant search keywords to help find the best AI/developer tools.`,
@@ -55,13 +58,16 @@ export type ComparisonDecomposition = z.infer<typeof ComparisonDecompositionSche
 /**
  * Query Decomposition for "comparison" intent
  * Extracts the specific tool names being compared and optional comparison aspects
+ *
+ * @deprecated Logic is now handled by fusedRouteQuery in ~/lib/fused-query-router
+ *             to avoid extra LLM round-trips.
  */
 export const decomposeComparison = async (query: string): Promise<ComparisonDecomposition> => {
   log.debug(`Decomposing comparison query: ${query}`)
 
   try {
     const { object } = await generateObject({
-      model: geminiFlashModel,
+      model: geminiFlashLiteModel,
       schema: ComparisonDecompositionSchema,
       temperature: 0, // Deterministic extraction
       system: `You are a query analyzer for an AI tools directory.
@@ -93,13 +99,16 @@ export type SearchMetadata = z.infer<typeof SearchMetadataSchema>
 /**
  * Metadata Extraction for "search" intent
  * Extracts structured filters from the search query
+ *
+ * @deprecated Logic is now handled by fusedRouteQuery in ~/lib/fused-query-router
+ *             to avoid extra LLM round-trips.
  */
 export const extractSearchMetadata = async (query: string): Promise<SearchMetadata> => {
   log.debug(`Extracting search metadata: ${query}`)
 
   try {
     const { object } = await generateObject({
-      model: geminiFlashModel,
+      model: geminiFlashLiteModel,
       schema: SearchMetadataSchema,
       temperature: 0,
       system: `You are a query analyzer for an AI tools directory.
