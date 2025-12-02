@@ -18,16 +18,18 @@ export const inngest = new Inngest({
   schemas: new EventSchemas().fromRecord<Events>(),
 })
 
-// Wrapper for inngest.send() with logging
-export const sendInngestEvent = async <T extends keyof Events>(
-  event: { name: T; data: Events[T]["data"] },
-): Promise<ReturnType<typeof inngest.send>> => {
+// Strongly-typed wrapper for inngest.send() with logging
+export const sendInngestEvent = async <T extends keyof Events>(event: {
+  name: T
+  data: Events[T]["data"]
+}) => {
   const startTime = performance.now()
 
   try {
     inngestLogger.eventTriggered(event.name, event.data)
 
-    const result = await inngest.send(event)
+    // Cast is safe because Events is exactly the schema used to configure Inngest
+    const result = await inngest.send(event as any)
 
     const duration = performance.now() - startTime
     inngestLogger.info(`Event sent successfully: ${event.name}`, {
