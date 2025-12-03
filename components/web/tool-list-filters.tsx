@@ -1,6 +1,6 @@
 "use client"
 
-import { LoaderIcon, SearchIcon } from "lucide-react"
+import { LoaderIcon, SearchIcon, SparklesIcon, TypeIcon } from "lucide-react"
 import { type Values, useQueryStates } from "nuqs"
 import { useEffect, useState, useTransition } from "react"
 import { Stack } from "~/components/common/stack"
@@ -8,14 +8,19 @@ import { Input } from "~/components/web/ui/input"
 import { Select } from "~/components/web/ui/select"
 import { useDebounce } from "~/hooks/use-debounce"
 import type { CategoryMany } from "~/server/categories/payloads"
-import { searchParams } from "~/server/tools/search-params"
+import { searchParams, type SearchMode } from "~/server/tools/search-params"
 
 export type ToolListFiltersProps = {
   categories?: CategoryMany[]
   placeholder?: string
+  enableModeToggle?: boolean
 }
 
-export const ToolListFilters = ({ categories, placeholder }: ToolListFiltersProps) => {
+export const ToolListFilters = ({
+  categories,
+  placeholder,
+  enableModeToggle = true,
+}: ToolListFiltersProps) => {
   const [isLoading, startTransition] = useTransition()
   const [filters, setFilters] = useQueryStates(searchParams, { shallow: false, startTransition })
   const [inputValue, setInputValue] = useState(filters.q || "")
@@ -44,6 +49,14 @@ export const ToolListFilters = ({ categories, placeholder }: ToolListFiltersProp
     { value: "name.desc", label: "Name Z-A" },
   ]
 
+  const modeOptions: { value: SearchMode; label: string; icon: typeof TypeIcon }[] = [
+    { value: "keyword", label: "Keyword", icon: TypeIcon },
+    { value: "hybrid", label: "AI Search", icon: SparklesIcon },
+  ]
+
+  const currentMode = (filters.mode || "keyword") as SearchMode
+  const hasSearchQuery = Boolean(inputValue.trim())
+
   return (
     <Stack className="w-full">
       <div className="relative grow min-w-0">
@@ -59,6 +72,22 @@ export const ToolListFilters = ({ categories, placeholder }: ToolListFiltersProp
           className="w-full truncate pl-10"
         />
       </div>
+
+      {enableModeToggle && hasSearchQuery && (
+        <Select
+          size="lg"
+          className="min-w-32 max-sm:flex-1"
+          value={currentMode}
+          onChange={e => updateFilters({ mode: e.target.value as SearchMode })}
+          title="Search mode"
+        >
+          {modeOptions.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      )}
 
       {categories && (
         <Select

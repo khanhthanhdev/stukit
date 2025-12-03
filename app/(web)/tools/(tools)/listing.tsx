@@ -3,7 +3,7 @@ import type { SearchParams } from "nuqs/server"
 import type { ComponentProps } from "react"
 import { ToolList } from "~/components/web/tool-list"
 import { findCategories } from "~/server/categories/queries"
-import { searchTools } from "~/server/tools/queries"
+import { searchToolsUnified } from "~/server/tools/queries"
 
 type ToolsListingProps = Omit<
   ComponentProps<typeof ToolList>,
@@ -14,8 +14,10 @@ type ToolsListingProps = Omit<
 }
 
 export const ToolsListing = async ({ searchParams, where, ...props }: ToolsListingProps) => {
+  const resolvedParams = await searchParams
+
   const [{ tools, totalCount }, categories] = await Promise.all([
-    searchTools(await searchParams, { where }),
+    searchToolsUnified(resolvedParams, { where }),
     findCategories({}),
   ])
 

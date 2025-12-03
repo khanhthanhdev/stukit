@@ -7,7 +7,7 @@ export const gemini = createGoogleGenerativeAI({
 })
 
 export const GEMINI_FLASH_LITE_MODEL = "gemini-2.5-flash-lite"
-export const GEMINI_FLASH_MODEL = "gemini-2.5-flash"
+export const GEMINI_FLASH_MODEL = "gemini-2.5-flash-lite"
 export const GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 
 export const geminiFlashLiteModel = gemini(GEMINI_FLASH_LITE_MODEL)

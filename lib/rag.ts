@@ -1,4 +1,5 @@
 import { generateText } from "ai"
+import { env } from "~/env"
 import type { QueryIntent } from "~/lib/query-router"
 import { fusedRouteQuery } from "~/lib/fused-query-router"
 import type { ToolVectorMatch } from "~/lib/vector-store"
@@ -71,6 +72,20 @@ export const retrieveToolContextWithRouting = async (
     return {
       context: [],
       intent: { intent: "search", confidence: 0, reasoning: "Empty query" },
+      processedQuery: query,
+    }
+  }
+
+  // Short-circuit when RAG is disabled via env flag
+  if (!env.RAG_ENABLED) {
+    log.info("RAG disabled via env; skipping retrieval and router LLM calls")
+    return {
+      context: [],
+      intent: {
+        intent: "search",
+        confidence: 0,
+        reasoning: "RAG is disabled; no retrieval performed.",
+      },
       processedQuery: query,
     }
   }

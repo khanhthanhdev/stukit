@@ -17,6 +17,7 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     VERCEL_ENV: z.enum(["development", "preview", "production"]).default("development"),
+    RAG_ENABLED: z.coerce.boolean().default(true),
     ALLOWED_EMAILS: z.string().optional(),
     AUTH_SECRET: z.string().min(1),
     AUTH_GOOGLE_ID: z.string().min(1),

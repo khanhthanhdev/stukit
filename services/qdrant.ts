@@ -23,15 +23,18 @@ let ensureToolsCollectionPromise: Promise<void> | null = null
 export const ensureToolsCollection = async () => {
   if (!ensureToolsCollectionPromise) {
     ensureToolsCollectionPromise = (async () => {
-      const exists = await qdrantClient.collectionExists(QDRANT_TOOLS_COLLECTION)
+      const existsResult = await qdrantClient.collectionExists(QDRANT_TOOLS_COLLECTION)
+      const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
 
       if (!exists) {
+        console.log(`Creating tools collection: ${QDRANT_TOOLS_COLLECTION}`)
         await qdrantClient.createCollection(QDRANT_TOOLS_COLLECTION, {
           vectors: {
             size: QDRANT_TOOLS_VECTOR_SIZE,
             distance: "Cosine",
           },
         })
+        console.log("Tools collection created successfully")
       }
     })()
   }
@@ -106,7 +109,8 @@ export const ensureHybridCollection = async () => {
  * WARNING: This will delete all existing data in the collection
  */
 export const recreateHybridCollection = async () => {
-  const exists = await qdrantClient.collectionExists(QDRANT_HYBRID_COLLECTION)
+  const existsResult = await qdrantClient.collectionExists(QDRANT_HYBRID_COLLECTION)
+  const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
 
   if (exists) {
     await qdrantClient.deleteCollection(QDRANT_HYBRID_COLLECTION)
