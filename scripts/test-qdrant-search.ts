@@ -25,6 +25,7 @@ import {
   reindexAllCategories,
   type AlternativeVectorMatch,
   type CategoryVectorMatch,
+  type ReindexProgress,
 } from "~/lib/vector-store"
 import { findRelatedTools, findRelatedToolsBySlug } from "~/lib/related-tools"
 import {
@@ -151,7 +152,10 @@ async function testCategoriesIndexing() {
         id: true,
         slug: true,
         name: true,
+        label: true,
         description: true,
+        updatedAt: true,
+        createdAt: true,
       },
     })
 
@@ -405,8 +409,8 @@ async function testReindexing() {
 
   try {
     // Test alternatives reindexing (with progress callback)
-    let altProgress = { total: 0, processed: 0, failed: [] }
-    const altProgressCallback = (progress: typeof altProgress) => {
+    let altProgress: ReindexProgress = { total: 0, processed: 0, failed: [] }
+    const altProgressCallback = (progress: ReindexProgress) => {
       altProgress = progress
     }
 
@@ -422,8 +426,8 @@ async function testReindexing() {
     })
 
     // Test categories reindexing
-    let catProgress = { total: 0, processed: 0, failed: [] }
-    const catProgressCallback = (progress: typeof catProgress) => {
+    let catProgress: ReindexProgress = { total: 0, processed: 0, failed: [] }
+    const catProgressCallback = (progress: ReindexProgress) => {
       catProgress = progress
     }
 
@@ -452,7 +456,15 @@ async function testVectorDeletion() {
       select: { id: true, slug: true },
     })
     const sampleCategory = await prisma.category.findFirst({
-      select: { id: true, slug: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        label: true,
+        description: true,
+        updatedAt: true,
+        createdAt: true,
+      },
     })
 
     if (sampleTool) {

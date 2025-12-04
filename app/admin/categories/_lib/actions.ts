@@ -99,7 +99,7 @@ export const deleteCategories = authedProcedure
 
     // Delete category vectors from Qdrant
     try {
-      await Promise.all(ids.map(id => deleteCategoryVector(id)))
+      await Promise.all(ids.map((id: string) => deleteCategoryVector(id)))
     } catch (error) {
       console.error("Failed to delete category vectors:", error)
       // Don't fail the operation if vector deletion fails
