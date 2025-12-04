@@ -1,7 +1,7 @@
 import { isProd } from "~/env"
 import { removeS3Directory } from "~/lib/media"
 import { inngestLogger } from "~/lib/logger"
-import { deleteToolVector } from "~/lib/vector-store"
+import { deleteToolVector, deleteAlternativeVector } from "~/lib/vector-store"
 import { inngest } from "~/services/inngest"
 
 const FUNCTION_ID = "tool.deleted"
@@ -27,6 +27,21 @@ export const toolDeleted = inngest.createFunction(
           inngestLogger.stepCompleted("delete-tool-vector", FUNCTION_ID, toolSlug, duration)
         } catch (error) {
           inngestLogger.stepError("delete-tool-vector", FUNCTION_ID, toolSlug, error)
+          throw error
+        }
+      })
+
+      // Delete from alternatives collection
+      await step.run("delete-alternative-vector", async () => {
+        const stepStartTime = performance.now()
+        inngestLogger.stepStarted("delete-alternative-vector", FUNCTION_ID, toolSlug)
+
+        try {
+          await deleteAlternativeVector(event.data.id)
+          const duration = performance.now() - stepStartTime
+          inngestLogger.stepCompleted("delete-alternative-vector", FUNCTION_ID, toolSlug, duration)
+        } catch (error) {
+          inngestLogger.stepError("delete-alternative-vector", FUNCTION_ID, toolSlug, error)
           throw error
         }
       })

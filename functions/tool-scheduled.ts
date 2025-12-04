@@ -5,7 +5,7 @@ import { generateContent } from "~/lib/generate-content"
 import { uploadFavicon, uploadScreenshot } from "~/lib/media"
 import { inngestLogger } from "~/lib/logger"
 import { getSocialsFromUrl } from "~/lib/socials"
-import { upsertToolVector } from "~/lib/vector-store"
+import { upsertToolVector, upsertAlternativeVector } from "~/lib/vector-store"
 import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
 
@@ -162,6 +162,38 @@ export const toolScheduled = inngest.createFunction(
           inngestLogger.stepCompleted("sync-tool-vector", FUNCTION_ID, toolSlug, duration)
         } catch (error) {
           inngestLogger.stepError("sync-tool-vector", FUNCTION_ID, toolSlug, error)
+          throw error
+        }
+      })
+
+      // Also index as an alternative for related tools recommendations
+      await step.run("sync-alternative-vector", async () => {
+        const stepStartTime = performance.now()
+        inngestLogger.stepStarted("sync-alternative-vector", FUNCTION_ID, toolSlug)
+
+        try {
+          const latestTool = await prisma.tool.findUniqueOrThrow({
+            where: { id: tool.id },
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              description: true,
+            },
+          })
+
+          await upsertAlternativeVector({
+            id: latestTool.id,
+            slug: latestTool.slug,
+            name: latestTool.name,
+            description: latestTool.description,
+            relatedToolIds: [],
+          })
+
+          const duration = performance.now() - stepStartTime
+          inngestLogger.stepCompleted("sync-alternative-vector", FUNCTION_ID, toolSlug, duration)
+        } catch (error) {
+          inngestLogger.stepError("sync-alternative-vector", FUNCTION_ID, toolSlug, error)
           throw error
         }
       })

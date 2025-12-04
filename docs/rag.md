@@ -280,3 +280,250 @@ async function main(userInput: string) {
   
   return text;
 }
+
+---
+
+## 6. Alternatives and Categories Search
+
+The system extends Qdrant hybrid search to alternatives and categories, providing semantic search capabilities beyond tools.
+
+### Collections
+
+The system maintains three separate Qdrant collections:
+- **Tools Collection** (`tools`): Main tool search with hybrid vectors
+- **Alternatives Collection** (`alternatives`): Alternative tool recommendations
+- **Categories Collection** (`categories`): Category taxonomy search
+
+All collections use the same hybrid architecture (dense + sparse vectors) for consistency.
+
+### Alternatives Search
+
+Alternatives are indexed with their name, description, and related tool metadata. The search function uses the same hybrid search pattern as tools.
+
+```typescript
+import { searchAlternativeVectors } from '~/lib/vector-store';
+
+// Search alternatives with a query
+const results = await searchAlternativeVectors('AI writing assistant', {
+  limit: 10,
+  offset: 0,
+  scoreThreshold: 0.3, // Optional minimum relevance score
+});
+
+// Results include:
+// - id: Alternative ID
+// - score: Relevance score (0-1)
+// - payload: { id, slug, name, description, relatedToolIds }
+```
+
+### Categories Search
+
+Categories are indexed with name, label, and description. This enables semantic category discovery.
+
+```typescript
+import { searchCategoryVectors } from '~/lib/vector-store';
+
+// Search categories
+const results = await searchCategoryVectors('productivity tools', {
+  limit: 10,
+  scoreThreshold: 0.2,
+});
+
+// Results include:
+// - id: Category ID
+// - score: Relevance score
+// - payload: { id, slug, name, description }
+```
+
+### Indexing Alternatives and Categories
+
+Alternatives and categories are automatically indexed when created or updated. Manual reindexing is also available:
+
+```typescript
+import { 
+  reindexAllAlternatives, 
+  reindexAllCategories 
+} from '~/lib/vector-store';
+
+// Reindex all alternatives
+const progress = await reindexAllAlternatives((progress) => {
+  console.log(`Processed: ${progress.processed}/${progress.total}`);
+});
+
+// Reindex all categories
+await reindexAllCategories();
+```
+
+### Fallback Behavior
+
+Both alternatives and categories search fall back to Prisma keyword search if:
+- Qdrant returns no results above the score threshold
+- Qdrant service is unavailable
+- Collection doesn't exist yet
+
+This ensures search always returns results even if vector search fails.
+
+---
+
+## 7. Related Tools Recommendations
+
+The system uses Qdrant's recommendation API to find similar tools based on vector similarity. This is more accurate than keyword-based recommendations.
+
+### Basic Usage
+
+```typescript
+import { findRelatedTools } from '~/lib/related-tools';
+
+// Find tools related to a specific tool ID
+const related = await findRelatedTools('tool-id-123', {
+  limit: 10,
+  scoreThreshold: 0.3,
+  publishedOnly: true, // Default: true
+});
+
+// Results include:
+// - tool: Full tool object (ToolMany type)
+// - score: Similarity score (0-1)
+```
+
+### Filtering Recommendations
+
+You can filter recommendations by category:
+
+```typescript
+// Find related tools in the same category
+const related = await findRelatedTools('tool-id-123', {
+  limit: 5,
+  category: 'productivity', // Category slug
+  scoreThreshold: 0.4,
+});
+```
+
+### Finding by Slug
+
+A convenience function is available for slug-based lookups:
+
+```typescript
+import { findRelatedToolsBySlug } from '~/lib/related-tools';
+
+// Find related tools by tool slug
+const related = await findRelatedToolsBySlug('notion', {
+  limit: 10,
+});
+```
+
+### Batch Recommendations
+
+For processing multiple tools at once:
+
+```typescript
+import { findRelatedToolsBatch } from '~/lib/related-tools';
+
+// Get recommendations for multiple tools
+const toolIds = ['id1', 'id2', 'id3'];
+const allRelated = await findRelatedToolsBatch(toolIds, {
+  limit: 5,
+  publishedOnly: true,
+});
+
+// Returns Map<string, RelatedToolResult[]>
+// Key: tool ID, Value: array of related tools
+```
+
+### How It Works
+
+1. **Vector Lookup**: Uses Qdrant's `query` API with `recommend` type
+2. **Similarity Search**: Finds tools with similar dense vectors (semantic similarity)
+3. **Filtering**: Applies category and published status filters
+4. **Hydration**: Fetches full tool data from Prisma for returned IDs
+5. **Exclusion**: Automatically excludes the source tool from results
+
+The recommendation API uses dense vectors only (not hybrid) for semantic similarity, which is ideal for finding conceptually related tools.
+
+---
+
+## 8. Search Configuration
+
+Search behavior is controlled through a centralized configuration module (`config/search.ts`) that provides environment-appropriate defaults.
+
+### Configuration Types
+
+The system provides four search configuration presets:
+
+```typescript
+import { getSearchConfig } from '~/config/search';
+
+// Default configuration (general queries)
+const defaultConfig = getSearchConfig('default');
+// - limit: 10
+// - scoreThreshold: 0.0
+// - efSearch: 64 (96 in production)
+// - prefetchLimit: 20
+
+// Admin search (more permissive)
+const adminConfig = getSearchConfig('admin');
+// - limit: 50
+// - scoreThreshold: 0.0
+// - efSearch: 64 (96 in production)
+// - prefetchLimit: 50
+
+// Public search (optimized for speed)
+const publicConfig = getSearchConfig('public');
+// - limit: 10
+// - scoreThreshold: 0.0
+// - efSearch: 64 (96 in production)
+// - prefetchLimit: 20
+
+// Recommendations (higher quality threshold)
+const recConfig = getSearchConfig('recommendation');
+// - limit: 20
+// - scoreThreshold: 0.3
+// - efSearch: 64 (96 in production)
+// - prefetchLimit: 30
+```
+
+### Configuration Parameters
+
+- **limit**: Maximum number of results to return
+- **scoreThreshold**: Minimum relevance score (0-1). Results below this are filtered out
+- **efSearch**: HNSW algorithm parameter. Higher = more accurate but slower searches
+  - Default: 64 (96 in production)
+  - Range: Typically 16-256
+- **prefetchLimit**: Number of candidates to fetch for RRF fusion (should be 2-3x the final limit)
+
+### Environment Overrides
+
+The configuration automatically adjusts for production:
+- `efSearch` is multiplied by 1.5 in production for better accuracy
+- Other parameters remain consistent across environments
+
+### Using Configuration in Search
+
+```typescript
+import { getSearchConfig } from '~/config/search';
+import { searchAlternativeVectors } from '~/lib/vector-store';
+
+const config = getSearchConfig('public');
+
+const results = await searchAlternativeVectors(query, {
+  limit: config.limit,
+  scoreThreshold: config.scoreThreshold,
+});
+```
+
+### Tuning Search Performance
+
+**For Better Accuracy**:
+- Increase `efSearch` (e.g., 128 or 256)
+- Increase `prefetchLimit` for RRF fusion
+- Lower `scoreThreshold` to include more results
+
+**For Better Speed**:
+- Decrease `efSearch` (e.g., 32 or 16)
+- Decrease `limit` and `prefetchLimit`
+- Increase `scoreThreshold` to filter low-quality results early
+
+**Balanced (Recommended)**:
+- `efSearch: 64` (default)
+- `prefetchLimit: 2-3x limit`
+- `scoreThreshold: 0.0` (let Qdrant return all results, filter in application if needed)

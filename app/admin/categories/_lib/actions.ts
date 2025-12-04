@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { categorySchema } from "~/app/admin/categories/_lib/validations"
 import { authedProcedure } from "~/lib/safe-actions"
+import { upsertCategoryVector, deleteCategoryVector } from "~/lib/vector-store"
 import { prisma } from "~/services/prisma"
 
 export const createCategory = authedProcedure
@@ -21,6 +22,14 @@ export const createCategory = authedProcedure
         tools: { connect: tools?.map((id: string) => ({ id })) },
       },
     })
+
+    // Index category in Qdrant for semantic search
+    try {
+      await upsertCategoryVector(category)
+    } catch (error) {
+      console.error("Failed to index category vector:", error)
+      // Don't fail the operation if vector indexing fails
+    }
 
     revalidatePath("/admin/categories")
 
@@ -41,6 +50,14 @@ export const updateCategory = authedProcedure
       },
     })
 
+    // Update category vector in Qdrant
+    try {
+      await upsertCategoryVector(category)
+    } catch (error) {
+      console.error("Failed to update category vector:", error)
+      // Don't fail the operation if vector indexing fails
+    }
+
     revalidatePath("/admin/categories")
     revalidatePath(`/admin/categories/${category.slug}`)
 
@@ -56,6 +73,17 @@ export const updateCategories = authedProcedure
       data,
     })
 
+    // Update category vectors in Qdrant
+    try {
+      const updatedCategories = await prisma.category.findMany({
+        where: { id: { in: ids } },
+      })
+      await Promise.all(updatedCategories.map(category => upsertCategoryVector(category)))
+    } catch (error) {
+      console.error("Failed to update category vectors:", error)
+      // Don't fail the operation if vector indexing fails
+    }
+
     revalidatePath("/admin/categories")
 
     return true
@@ -68,6 +96,14 @@ export const deleteCategories = authedProcedure
     await prisma.category.deleteMany({
       where: { id: { in: ids } },
     })
+
+    // Delete category vectors from Qdrant
+    try {
+      await Promise.all(ids.map(id => deleteCategoryVector(id)))
+    } catch (error) {
+      console.error("Failed to delete category vectors:", error)
+      // Don't fail the operation if vector deletion fails
+    }
 
     revalidatePath("/admin/categories")
 

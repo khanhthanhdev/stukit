@@ -12,10 +12,18 @@ import {
   QDRANT_HYBRID_COLLECTION,
   QDRANT_DENSE_VECTOR_SIZE,
   QDRANT_SEMANTIC_CACHE_COLLECTION,
+  QDRANT_ALTERNATIVES_COLLECTION,
+  QDRANT_CATEGORIES_COLLECTION,
   ensureSemanticCacheCollection,
+  ensureAlternativesCollection,
+  ensureCategoriesCollection,
   qdrantClient,
 } from "~/services/qdrant"
-import { reindexAllHybridTools } from "~/lib/vector-store"
+import {
+  reindexAllHybridTools,
+  reindexAllAlternatives,
+  reindexAllCategories,
+} from "~/lib/vector-store"
 
 const FORCE_RECREATE = process.argv.includes("--force")
 
@@ -77,6 +85,18 @@ async function main() {
   const semanticInfo = await qdrantClient.getCollection(QDRANT_SEMANTIC_CACHE_COLLECTION)
   console.log("   - Semantic cache points:", semanticInfo.points_count)
 
+  // Step 1c: Ensure alternatives collection exists
+  console.log("\n📦 Ensuring alternatives hybrid collection...")
+  await ensureAlternativesCollection()
+  const alternativesInfo = await qdrantClient.getCollection(QDRANT_ALTERNATIVES_COLLECTION)
+  console.log("   - Alternatives points:", alternativesInfo.points_count)
+
+  // Step 1d: Ensure categories collection exists
+  console.log("\n📦 Ensuring categories hybrid collection...")
+  await ensureCategoriesCollection()
+  const categoriesInfo = await qdrantClient.getCollection(QDRANT_CATEGORIES_COLLECTION)
+  console.log("   - Categories points:", categoriesInfo.points_count)
+
   // Step 2: Count tools to index
   console.log("\n📊 Counting published tools...")
   const toolCount = await prisma.tool.count({
@@ -121,11 +141,74 @@ async function main() {
     console.log(`      Failed tools: ${result.failed.slice(0, 5).join(", ")}${result.failed.length > 5 ? "..." : ""}`)
   }
 
-  // Verify final state
+  // Verify final tools state
   const finalInfo = await qdrantClient.getCollection(QDRANT_HYBRID_COLLECTION)
-  console.log("\n📦 Final collection state:")
+  console.log("\n📦 Final tools collection state:")
   console.log("   - Points:", finalInfo.points_count)
   console.log("   - Status:", finalInfo.status)
+
+  // Step 4: Index alternatives
+  console.log("\n🔄 Indexing alternatives collection...")
+  const alternativesStartTime = Date.now()
+  let alternativesLastProgressUpdate = 0
+
+  const alternativesResult = await reindexAllAlternatives(progress => {
+    const now = Date.now()
+    if (now - alternativesLastProgressUpdate > 500 || progress.processed === progress.total) {
+      const percent = Math.round((progress.processed / progress.total) * 100)
+      const bar = "█".repeat(Math.floor(percent / 2)) + "░".repeat(50 - Math.floor(percent / 2))
+      process.stdout.write(
+        `\r   [${bar}] ${percent}% (${progress.processed}/${progress.total})`,
+      )
+      alternativesLastProgressUpdate = now
+    }
+  })
+
+  const alternativesDuration = ((Date.now() - alternativesStartTime) / 1000).toFixed(1)
+  console.log("\n")
+  console.log(`   ✅ Alternatives indexed: ${alternativesResult.processed}/${alternativesResult.total}`)
+  console.log(`   ⏱️  Duration: ${alternativesDuration}s`)
+
+  if (alternativesResult.failed.length > 0) {
+    console.log(`   ❌ Failed: ${alternativesResult.failed.length}`)
+  }
+
+  // Step 5: Index categories
+  console.log("\n🔄 Indexing categories collection...")
+  const categoriesStartTime = Date.now()
+  let categoriesLastProgressUpdate = 0
+
+  const categoriesResult = await reindexAllCategories(progress => {
+    const now = Date.now()
+    if (now - categoriesLastProgressUpdate > 500 || progress.processed === progress.total) {
+      const percent = Math.round((progress.processed / progress.total) * 100)
+      const bar = "█".repeat(Math.floor(percent / 2)) + "░".repeat(50 - Math.floor(percent / 2))
+      process.stdout.write(
+        `\r   [${bar}] ${percent}% (${progress.processed}/${progress.total})`,
+      )
+      categoriesLastProgressUpdate = now
+    }
+  })
+
+  const categoriesDuration = ((Date.now() - categoriesStartTime) / 1000).toFixed(1)
+  console.log("\n")
+  console.log(`   ✅ Categories indexed: ${categoriesResult.processed}/${categoriesResult.total}`)
+  console.log(`   ⏱️  Duration: ${categoriesDuration}s`)
+
+  if (categoriesResult.failed.length > 0) {
+    console.log(`   ❌ Failed: ${categoriesResult.failed.length}`)
+  }
+
+  // Final summary
+  console.log("\n" + "=".repeat(50))
+  console.log("📈 Indexing Summary:")
+  console.log(`   Tools: ${result.processed}/${result.total} (${result.failed.length} failed)`)
+  console.log(
+    `   Alternatives: ${alternativesResult.processed}/${alternativesResult.total} (${alternativesResult.failed.length} failed)`,
+  )
+  console.log(
+    `   Categories: ${categoriesResult.processed}/${categoriesResult.total} (${categoriesResult.failed.length} failed)`,
+  )
 
   console.log("\n✨ Done!")
 }

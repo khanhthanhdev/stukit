@@ -15,7 +15,7 @@ type PageProps = {
 const getMetadata = cache(
   (metadata?: Metadata): Metadata => ({
     ...metadata,
-    title: "Browse All Developer Tools",
+    title: "Browse All Work & Study Tools",
     description: config.site.description,
   }),
 )

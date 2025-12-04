@@ -1,7 +1,14 @@
 import type { Prisma } from "@prisma/client"
 import type { SearchParams } from "nuqs/server"
 import { auth } from "~/lib/auth"
-import { type ToolVectorMatch, searchToolVectors } from "~/lib/vector-store"
+import { getSearchConfig } from "~/config/search"
+import {
+  type ToolVectorMatch,
+  type AlternativeVectorMatch,
+  searchToolVectors,
+  hybridSearchToolVectors,
+  searchAlternativeVectors,
+} from "~/lib/vector-store"
 import { toolManyPayload, toolOnePayload } from "~/server/tools/payloads"
 import { type SearchMode, searchParamsCache } from "~/server/tools/search-params"
 import { prisma } from "~/services/prisma"
@@ -26,6 +33,17 @@ const computeRRFScore = (keywordRank: number | null, semanticRank: number | null
   if (keywordRank !== null) score += 1 / (RRF_K + keywordRank)
   if (semanticRank !== null) score += 1 / (RRF_K + semanticRank)
   return score
+}
+
+/**
+ * Search result metadata indicating how results were matched
+ */
+export type SearchResultMetadata = {
+  matchType: "keyword" | "semantic" | "hybrid" | "fallback"
+  usedQdrant: boolean
+  qdrantResultCount?: number
+  keywordResultCount?: number
+  hasFallback: boolean
 }
 
 const parseSort = (sort: string): SortConfig => {
@@ -88,20 +106,92 @@ export const searchToolsHybrid = async (
   { where, ...args }: Prisma.ToolFindManyArgs = {},
 ) => {
   const { q, category, page, perPage } = searchParamsCache.parse(searchParams)
+  const searchConfig = getSearchConfig("public")
 
   if (!q) {
-    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+    return {
+      tools: [],
+      totalCount: 0,
+      matches: [] as ToolVectorMatch[],
+      metadata: {
+        matchType: "keyword",
+        usedQdrant: false,
+        hasFallback: false,
+      } as SearchResultMetadata,
+    }
   }
 
   const offset = (page - 1) * perPage
-  const matches = await searchToolVectors(q, {
-    category: category || undefined,
-    limit: perPage,
-    offset,
-  })
+  let matches: ToolVectorMatch[] = []
+  let usedQdrant = false
+  let hasFallback = false
 
+  try {
+    // Try hybrid search first (better quality)
+    matches = await hybridSearchToolVectors(q, {
+      category: category || undefined,
+      limit: perPage,
+      prefetchLimit: searchConfig.prefetchLimit,
+    })
+    usedQdrant = true
+
+    // Filter by score threshold if configured
+    if (searchConfig.scoreThreshold > 0) {
+      matches = matches.filter(m => m.score >= searchConfig.scoreThreshold)
+    }
+  } catch (error) {
+    console.warn("Qdrant hybrid search failed, falling back to semantic search:", error)
+    try {
+      // Fallback to semantic search
+      matches = await searchToolVectors(q, {
+        category: category || undefined,
+        limit: perPage,
+        offset,
+        scoreThreshold: searchConfig.scoreThreshold,
+      })
+      usedQdrant = true
+    } catch (semanticError) {
+      console.warn("Qdrant semantic search also failed:", semanticError)
+      usedQdrant = false
+    }
+  }
+
+  // If no Qdrant results, fallback to keyword search
   if (!matches.length) {
-    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+    hasFallback = true
+    const keywordWhere: Prisma.ToolWhereInput = {
+      publishedAt: { lte: new Date() },
+      ...(category && { categories: { some: { slug: category } } }),
+      ...where,
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    }
+
+    const keywordTools = await prisma.tool.findMany({
+      ...args,
+      where: keywordWhere,
+      include: toolManyPayload,
+      take: perPage,
+      skip: offset,
+    })
+
+    const keywordCount = await prisma.tool.count({
+      where: keywordWhere,
+    })
+
+    return {
+      tools: keywordTools,
+      totalCount: keywordCount,
+      matches: [] as ToolVectorMatch[],
+      metadata: {
+        matchType: "fallback",
+        usedQdrant: false,
+        keywordResultCount: keywordCount,
+        hasFallback: true,
+      } as SearchResultMetadata,
+    }
   }
 
   const ids = matches.map(match => match.payload.id)
@@ -137,6 +227,12 @@ export const searchToolsHybrid = async (
     tools: ordered.map(entry => entry.tool),
     totalCount: ordered.length,
     matches: ordered.map(entry => entry.match),
+    metadata: {
+      matchType: "hybrid",
+      usedQdrant: true,
+      qdrantResultCount: matches.length,
+      hasFallback: false,
+    } as SearchResultMetadata,
   }
 }
 
@@ -193,9 +289,19 @@ export const searchToolsCombined = async (
   { where, ...args }: Prisma.ToolFindManyArgs = {},
 ) => {
   const { q, category, page, perPage } = searchParamsCache.parse(searchParams)
+  const searchConfig = getSearchConfig("public")
 
   if (!q) {
-    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+    return {
+      tools: [],
+      totalCount: 0,
+      matches: [] as ToolVectorMatch[],
+      metadata: {
+        matchType: "keyword",
+        usedQdrant: false,
+        hasFallback: false,
+      } as SearchResultMetadata,
+    }
   }
 
   const categoryFilter: Prisma.ToolWhereInput | undefined = category
@@ -212,18 +318,66 @@ export const searchToolsCombined = async (
     ],
   }
 
-  const [keywordResults, semanticMatches] = await Promise.all([
+  let semanticMatches: ToolVectorMatch[] = []
+  let usedQdrant = false
+  let hasFallback = false
+
+  // Try Qdrant hybrid search first, fallback to semantic, then keyword-only
+  try {
+    semanticMatches = await hybridSearchToolVectors(q, {
+      category: category || undefined,
+      limit: perPage * 2,
+      prefetchLimit: searchConfig.prefetchLimit,
+    })
+    usedQdrant = true
+
+    // Filter by score threshold if configured
+    if (searchConfig.scoreThreshold > 0) {
+      semanticMatches = semanticMatches.filter(m => m.score >= searchConfig.scoreThreshold)
+    }
+  } catch (error) {
+    console.warn("Qdrant hybrid search failed, trying semantic search:", error)
+    try {
+      semanticMatches = await searchToolVectors(q, {
+        category: category || undefined,
+        limit: perPage * 2,
+        scoreThreshold: searchConfig.scoreThreshold,
+      })
+      usedQdrant = true
+    } catch (semanticError) {
+      console.warn("Qdrant semantic search also failed, using keyword-only:", semanticError)
+      usedQdrant = false
+    }
+  }
+
+  // Always run keyword search in parallel (or as fallback)
+  const [keywordResults] = await Promise.all([
     prisma.tool.findMany({
       ...args,
       where: keywordWhere,
       include: toolManyPayload,
       take: perPage * 2,
     }),
-    searchToolVectors(q, {
-      category: category || undefined,
-      limit: perPage * 2,
-    }),
   ])
+
+  // If no Qdrant results, use keyword-only
+  if (!semanticMatches.length && !usedQdrant) {
+    hasFallback = true
+    const offset = (page - 1) * perPage
+    const keywordCount = await prisma.tool.count({ where: keywordWhere })
+
+    return {
+      tools: keywordResults.slice(offset, offset + perPage),
+      totalCount: keywordCount,
+      matches: [] as ToolVectorMatch[],
+      metadata: {
+        matchType: "fallback",
+        usedQdrant: false,
+        keywordResultCount: keywordCount,
+        hasFallback: true,
+      } as SearchResultMetadata,
+    }
+  }
 
   const keywordRankMap = new Map(keywordResults.map((tool, idx) => [tool.id, idx + 1]))
   const semanticRankMap = new Map(semanticMatches.map((match, idx) => [match.payload.id, idx + 1]))
@@ -264,6 +418,13 @@ export const searchToolsCombined = async (
     tools: orderedTools,
     totalCount: scored.length,
     matches: orderedMatches,
+    metadata: {
+      matchType: "hybrid",
+      usedQdrant: usedQdrant,
+      qdrantResultCount: semanticMatches.length,
+      keywordResultCount: keywordResults.length,
+      hasFallback: hasFallback,
+    } as SearchResultMetadata,
   }
 }
 
@@ -275,17 +436,177 @@ export const searchToolsUnified = async (
   const searchMode = (mode || "keyword") as SearchMode
 
   if (!q && searchMode !== "keyword") {
-    return { tools: [], totalCount: 0, matches: [] as ToolVectorMatch[] }
+    return {
+      tools: [],
+      totalCount: 0,
+      matches: [] as ToolVectorMatch[],
+      metadata: {
+        matchType: "keyword",
+        usedQdrant: false,
+        hasFallback: false,
+      } as SearchResultMetadata,
+    }
   }
 
-  switch (searchMode) {
-    case "semantic":
-      return searchToolsHybrid(searchParams, args)
-    case "hybrid":
-      return searchToolsCombined(searchParams, args)
-    default: {
-      const result = await searchTools(searchParams, args)
-      return { ...result, matches: [] as ToolVectorMatch[] }
+  try {
+    switch (searchMode) {
+      case "semantic":
+        return await searchToolsHybrid(searchParams, args)
+      case "hybrid":
+        return await searchToolsCombined(searchParams, args)
+      default: {
+        const result = await searchTools(searchParams, args)
+        return {
+          ...result,
+          matches: [] as ToolVectorMatch[],
+          metadata: {
+            matchType: "keyword",
+            usedQdrant: false,
+            keywordResultCount: result.totalCount,
+            hasFallback: false,
+          } as SearchResultMetadata,
+        }
+      }
     }
+  } catch (error) {
+    // Final fallback: if all Qdrant searches fail, use keyword search
+    console.error("Search failed, falling back to keyword search:", error)
+    const result = await searchTools(searchParams, args)
+    return {
+      ...result,
+      matches: [] as ToolVectorMatch[],
+      metadata: {
+        matchType: "fallback",
+        usedQdrant: false,
+        keywordResultCount: result.totalCount,
+        hasFallback: true,
+      } as SearchResultMetadata,
+    }
+  }
+}
+
+/**
+ * Search alternatives using Qdrant vector search with fallback to keyword search
+ * Returns tools (alternatives) with search metadata
+ */
+export const searchAlternatives = async (
+  query: string,
+  options: { limit?: number; offset?: number } = {},
+) => {
+  const searchConfig = getSearchConfig("public")
+  const { limit = searchConfig.limit, offset = 0 } = options
+
+  if (!query.trim()) {
+    const tools = await prisma.tool.findMany({
+      where: { publishedAt: { lte: new Date() } },
+      include: toolManyPayload,
+      take: limit,
+      skip: offset,
+      orderBy: { name: "asc" },
+    })
+
+    const totalCount = await prisma.tool.count({
+      where: { publishedAt: { lte: new Date() } },
+    })
+
+    return {
+      tools,
+      totalCount,
+      matches: [] as AlternativeVectorMatch[],
+      metadata: {
+        matchType: "keyword" as const,
+        usedQdrant: false,
+        keywordResultCount: totalCount,
+        hasFallback: false,
+      },
+    }
+  }
+
+  let matches: AlternativeVectorMatch[] = []
+  let usedQdrant = false
+  let hasFallback = false
+
+  try {
+    // Try Qdrant hybrid search for alternatives
+    matches = await searchAlternativeVectors(query, {
+      limit,
+      offset,
+      scoreThreshold: searchConfig.scoreThreshold,
+    })
+    usedQdrant = true
+
+    // Filter by score threshold if configured
+    if (searchConfig.scoreThreshold > 0) {
+      matches = matches.filter(m => m.score >= searchConfig.scoreThreshold)
+    }
+  } catch (error) {
+    console.warn("Qdrant alternative search failed, falling back to keyword search:", error)
+    usedQdrant = false
+  }
+
+  // If no Qdrant results, fallback to keyword search
+  if (!matches.length) {
+    hasFallback = true
+    const keywordTools = await prisma.tool.findMany({
+      where: {
+        publishedAt: { lte: new Date() },
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+        ],
+      },
+      include: toolManyPayload,
+      take: limit,
+      skip: offset,
+      orderBy: { name: "asc" },
+    })
+
+    const keywordCount = await prisma.tool.count({
+      where: {
+        publishedAt: { lte: new Date() },
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+        ],
+      },
+    })
+
+    return {
+      tools: keywordTools,
+      totalCount: keywordCount,
+      matches: [] as AlternativeVectorMatch[],
+      metadata: {
+        matchType: "fallback" as const,
+        usedQdrant: false,
+        keywordResultCount: keywordCount,
+        hasFallback: true,
+      },
+    }
+  }
+
+  // Hydrate full tool data from Prisma
+  const toolIds = matches.map(m => m.payload.id)
+  const tools = await prisma.tool.findMany({
+    where: {
+      id: { in: toolIds },
+      publishedAt: { lte: new Date() },
+    },
+    include: toolManyPayload,
+  })
+
+  // Preserve order from vector search
+  const toolMap = new Map(tools.map(t => [t.id, t]))
+  const orderedTools = toolIds.map(id => toolMap.get(id)).filter(Boolean) as typeof tools
+
+  return {
+    tools: orderedTools,
+    totalCount: orderedTools.length,
+    matches,
+    metadata: {
+      matchType: "hybrid" as const,
+      usedQdrant: true,
+      qdrantResultCount: matches.length,
+      hasFallback: false,
+    },
   }
 }

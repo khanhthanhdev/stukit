@@ -9,8 +9,12 @@ import {
   QDRANT_HYBRID_COLLECTION,
   QDRANT_TOOLS_COLLECTION,
   QDRANT_TOOLS_VECTOR_SIZE,
+  QDRANT_ALTERNATIVES_COLLECTION,
+  QDRANT_CATEGORIES_COLLECTION,
   ensureHybridCollection,
   ensureToolsCollection,
+  ensureAlternativesCollection,
+  ensureCategoriesCollection,
   qdrantClient,
 } from "~/services/qdrant"
 
@@ -490,4 +494,423 @@ export const clearHybridCollection = async () => {
   if (exists) {
     await qdrantClient.deleteCollection(QDRANT_HYBRID_COLLECTION)
   }
+}
+
+// ============================================================================
+// Alternatives Vector Store Operations
+// ============================================================================
+
+/**
+ * Payload type for alternative vectors
+ * Alternatives are tools with metadata about related tools
+ */
+export type AlternativeVectorPayload = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  relatedToolIds: string[] // IDs of tools this is an alternative to, or tools that are alternatives to this
+}
+
+export type AlternativeVectorMatch = {
+  id: string
+  score: number
+  payload: AlternativeVectorPayload
+}
+
+/**
+ * Builds a document string from alternative data for embedding
+ */
+const buildAlternativeDocument = (alternative: {
+  name: string
+  description: string | null
+}): string => {
+  return [alternative.name, alternative.description].filter(Boolean).join("\n\n")
+}
+
+/**
+ * Upserts an alternative vector to the alternatives hybrid collection
+ * Note: Alternatives are treated as tools with related tool metadata
+ */
+export const upsertAlternativeVector = async (alternative: {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  relatedToolIds?: string[]
+}) => {
+  log.debug(`Upserting alternative vector: ${alternative.slug}`)
+  await ensureAlternativesCollection()
+
+  const document = buildAlternativeDocument(alternative)
+  log.debug(`Document length: ${document.length} chars`)
+
+  // Generate dense vector (async) and sparse vector (sync)
+  const sparseVector = generateSparseEmbedding(document)
+  const denseVector = await generateGeminiEmbedding(document, {
+    taskType: "RETRIEVAL_DOCUMENT",
+    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
+  })
+
+  log.debug(
+    `Generated dense: ${denseVector.length} dims, sparse: ${sparseVector.indices.length} non-zero`,
+  )
+
+  const payload: AlternativeVectorPayload = {
+    id: alternative.id,
+    slug: alternative.slug,
+    name: alternative.name,
+    description: alternative.description,
+    relatedToolIds: alternative.relatedToolIds ?? [],
+  }
+
+  try {
+    await qdrantClient.upsert(QDRANT_ALTERNATIVES_COLLECTION, {
+      wait: true,
+      points: [
+        {
+          id: toUUID(alternative.id),
+          vector: {
+            dense: denseVector,
+            sparse: {
+              indices: sparseVector.indices,
+              values: sparseVector.values,
+            },
+          },
+          payload,
+        },
+      ],
+    })
+    log.info(`Alternative vector upserted: ${alternative.slug}`)
+  } catch (error) {
+    log.error(`Failed to upsert alternative vector: ${alternative.slug}`, { error })
+    throw error
+  }
+}
+
+/**
+ * Deletes an alternative vector from the alternatives collection
+ */
+export const deleteAlternativeVector = async (alternativeId: string) => {
+  await ensureAlternativesCollection()
+
+  try {
+    await qdrantClient.delete(QDRANT_ALTERNATIVES_COLLECTION, {
+      points: [toUUID(alternativeId)],
+    })
+    log.info(`Alternative vector deleted: ${alternativeId}`)
+  } catch (error) {
+    // Gracefully handle if vector doesn't exist
+    log.warn(`Alternative vector ${alternativeId} not found or already deleted`)
+  }
+}
+
+/**
+ * Searches for alternatives using hybrid search
+ */
+export const searchAlternativeVectors = async (
+  query: string,
+  { limit = 10, offset = 0, scoreThreshold }: { limit?: number; offset?: number; scoreThreshold?: number } = {},
+): Promise<AlternativeVectorMatch[]> => {
+  await ensureAlternativesCollection()
+
+  // Generate dense query vector (async) and sparse query vector (sync)
+  const sparseQuery = generateSparseEmbedding(query)
+  const denseQuery = await generateGeminiEmbedding(query, {
+    taskType: "RETRIEVAL_QUERY",
+    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
+  })
+
+  // Execute hybrid search with RRF fusion
+  const results = await qdrantClient.query(QDRANT_ALTERNATIVES_COLLECTION, {
+    prefetch: [
+      {
+        query: denseQuery,
+        using: "dense",
+        limit: limit * 2, // Prefetch more for RRF
+      },
+      {
+        query: {
+          indices: sparseQuery.indices,
+          values: sparseQuery.values,
+        },
+        using: "sparse",
+        limit: limit * 2,
+      },
+    ],
+    query: {
+      fusion: "rrf", // Reciprocal Rank Fusion
+    },
+    limit,
+    offset,
+    with_payload: true,
+    score_threshold: scoreThreshold,
+  })
+
+  return results.points
+    .map(result => {
+      const payload = result.payload as AlternativeVectorPayload | undefined
+      if (!payload) return null
+
+      return {
+        id: payload.id ?? String(result.id ?? ""),
+        score: result.score ?? 0,
+        payload,
+      }
+    })
+    .filter((match): match is AlternativeVectorMatch => Boolean(match?.payload?.slug))
+}
+
+/**
+ * Reindexes all alternatives to the alternatives collection
+ * Note: This assumes alternatives are stored as tools with related tool metadata
+ */
+export const reindexAllAlternatives = async (
+  onProgress?: (progress: ReindexProgress) => void,
+): Promise<ReindexProgress> => {
+  await ensureAlternativesCollection()
+
+  // For now, we'll index all published tools as potential alternatives
+  // In the future, this could be filtered to only tools marked as alternatives
+  const tools = await prisma.tool.findMany({
+    where: { publishedAt: { lte: new Date() } },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      description: true,
+    },
+  })
+
+  const progress: ReindexProgress = {
+    total: tools.length,
+    processed: 0,
+    failed: [],
+  }
+
+  const BATCH_SIZE = 5 // Smaller batch due to dual embedding generation
+
+  for (let i = 0; i < tools.length; i += BATCH_SIZE) {
+    const batch = tools.slice(i, i + BATCH_SIZE)
+
+    await Promise.all(
+      batch.map(async tool => {
+        try {
+          await upsertAlternativeVector({
+            id: tool.id,
+            slug: tool.slug,
+            name: tool.name,
+            description: tool.description,
+            relatedToolIds: [], // Can be populated later based on business logic
+          })
+          progress.processed++
+        } catch (error) {
+          progress.failed.push(tool.slug)
+          log.error(`Failed to index alternative ${tool.slug}:`, { error })
+        }
+      }),
+    )
+
+    onProgress?.(progress)
+  }
+
+  return progress
+}
+
+// ============================================================================
+// Categories Vector Store Operations
+// ============================================================================
+
+/**
+ * Payload type for category vectors
+ */
+export type CategoryVectorPayload = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+}
+
+export type CategoryVectorMatch = {
+  id: string
+  score: number
+  payload: CategoryVectorPayload
+}
+
+type CategoryWithRelations = Category
+
+/**
+ * Builds a document string from category data for embedding
+ */
+const buildCategoryDocument = (category: CategoryWithRelations): string => {
+  return [category.name, category.label, category.description].filter(Boolean).join("\n\n")
+}
+
+/**
+ * Serializes category to payload format
+ */
+const serializeCategoryPayload = (category: CategoryWithRelations): CategoryVectorPayload => ({
+  id: category.id,
+  slug: category.slug,
+  name: category.name,
+  description: category.description ?? null,
+})
+
+/**
+ * Upserts a category vector to the categories hybrid collection
+ */
+export const upsertCategoryVector = async (category: CategoryWithRelations) => {
+  log.debug(`Upserting category vector: ${category.slug}`)
+  await ensureCategoriesCollection()
+
+  const document = buildCategoryDocument(category)
+  log.debug(`Document length: ${document.length} chars`)
+
+  // Generate dense vector (async) and sparse vector (sync)
+  const sparseVector = generateSparseEmbedding(document)
+  const denseVector = await generateGeminiEmbedding(document, {
+    taskType: "RETRIEVAL_DOCUMENT",
+    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
+  })
+
+  log.debug(
+    `Generated dense: ${denseVector.length} dims, sparse: ${sparseVector.indices.length} non-zero`,
+  )
+
+  try {
+    await qdrantClient.upsert(QDRANT_CATEGORIES_COLLECTION, {
+      wait: true,
+      points: [
+        {
+          id: toUUID(category.id),
+          vector: {
+            dense: denseVector,
+            sparse: {
+              indices: sparseVector.indices,
+              values: sparseVector.values,
+            },
+          },
+          payload: serializeCategoryPayload(category),
+        },
+      ],
+    })
+    log.info(`Category vector upserted: ${category.slug}`)
+  } catch (error) {
+    log.error(`Failed to upsert category vector: ${category.slug}`, { error })
+    throw error
+  }
+}
+
+/**
+ * Deletes a category vector from the categories collection
+ */
+export const deleteCategoryVector = async (categoryId: string) => {
+  await ensureCategoriesCollection()
+
+  try {
+    await qdrantClient.delete(QDRANT_CATEGORIES_COLLECTION, {
+      points: [toUUID(categoryId)],
+    })
+    log.info(`Category vector deleted: ${categoryId}`)
+  } catch (error) {
+    // Gracefully handle if vector doesn't exist
+    log.warn(`Category vector ${categoryId} not found or already deleted`)
+  }
+}
+
+/**
+ * Searches for categories using hybrid search
+ */
+export const searchCategoryVectors = async (
+  query: string,
+  { limit = 10, offset = 0, scoreThreshold }: { limit?: number; offset?: number; scoreThreshold?: number } = {},
+): Promise<CategoryVectorMatch[]> => {
+  await ensureCategoriesCollection()
+
+  // Generate dense query vector (async) and sparse query vector (sync)
+  const sparseQuery = generateSparseEmbedding(query)
+  const denseQuery = await generateGeminiEmbedding(query, {
+    taskType: "RETRIEVAL_QUERY",
+    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
+  })
+
+  // Execute hybrid search with RRF fusion
+  const results = await qdrantClient.query(QDRANT_CATEGORIES_COLLECTION, {
+    prefetch: [
+      {
+        query: denseQuery,
+        using: "dense",
+        limit: limit * 2, // Prefetch more for RRF
+      },
+      {
+        query: {
+          indices: sparseQuery.indices,
+          values: sparseQuery.values,
+        },
+        using: "sparse",
+        limit: limit * 2,
+      },
+    ],
+    query: {
+      fusion: "rrf", // Reciprocal Rank Fusion
+    },
+    limit,
+    offset,
+    with_payload: true,
+    score_threshold: scoreThreshold,
+  })
+
+  return results.points
+    .map(result => {
+      const payload = result.payload as CategoryVectorPayload | undefined
+      if (!payload) return null
+
+      return {
+        id: payload.id ?? String(result.id ?? ""),
+        score: result.score ?? 0,
+        payload,
+      }
+    })
+    .filter((match): match is CategoryVectorMatch => Boolean(match?.payload?.slug))
+}
+
+/**
+ * Reindexes all categories to the categories collection
+ */
+export const reindexAllCategories = async (
+  onProgress?: (progress: ReindexProgress) => void,
+): Promise<ReindexProgress> => {
+  await ensureCategoriesCollection()
+
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+  })
+
+  const progress: ReindexProgress = {
+    total: categories.length,
+    processed: 0,
+    failed: [],
+  }
+
+  const BATCH_SIZE = 5 // Smaller batch due to dual embedding generation
+
+  for (let i = 0; i < categories.length; i += BATCH_SIZE) {
+    const batch = categories.slice(i, i + BATCH_SIZE)
+
+    await Promise.all(
+      batch.map(async category => {
+        try {
+          await upsertCategoryVector(category)
+          progress.processed++
+        } catch (error) {
+          progress.failed.push(category.slug)
+          log.error(`Failed to index category ${category.slug}:`, { error })
+        }
+      }),
+    )
+
+    onProgress?.(progress)
+  }
+
+  return progress
 }

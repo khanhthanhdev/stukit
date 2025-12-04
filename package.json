@@ -16,6 +16,8 @@
     "db:reset": "prisma migrate reset --skip-seed && prisma db push --skip-generate",
     "qdrant:setup": "bun run scripts/setup-qdrant.ts",
     "qdrant:reset": "bun run scripts/setup-qdrant.ts --force",
+    "qdrant:test": "bun run scripts/test-qdrant-search.ts",
+    "qdrant:drift": "bun run scripts/check-qdrant-drift.ts",
     "import:ai-tools": "bun run scripts/import-ai-study-tools.ts",
     "postinstall": "bun run db:generate"
   },

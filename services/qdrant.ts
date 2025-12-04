@@ -10,6 +10,9 @@ export const QDRANT_TOOLS_COLLECTION = "tools"
 export const QDRANT_SEMANTIC_CACHE_COLLECTION = "semantic_cache"
 // Hybrid collection with separate name
 export const QDRANT_HYBRID_COLLECTION = "tools_hybrid"
+// Alternatives and categories collections
+export const QDRANT_ALTERNATIVES_COLLECTION = "alternatives_hybrid"
+export const QDRANT_CATEGORIES_COLLECTION = "categories_hybrid"
 // Dense vector size for gemini-embedding-001 (native 768, or custom)
 export const QDRANT_DENSE_VECTOR_SIZE = 768
 export const QDRANT_TOOLS_VECTOR_SIZE = 768
@@ -119,4 +122,120 @@ export const recreateHybridCollection = async () => {
   // Reset the promise so it creates fresh
   ensureHybridCollectionPromise = null
   await ensureHybridCollection()
+}
+
+// ============================================================================
+// Alternatives Collection
+// ============================================================================
+
+let ensureAlternativesCollectionPromise: Promise<void> | null = null
+
+/**
+ * Ensures the alternatives hybrid collection exists with both dense and sparse vector configs
+ * Uses named vectors for Qdrant hybrid search with RRF fusion
+ */
+export const ensureAlternativesCollection = async () => {
+  if (!ensureAlternativesCollectionPromise) {
+    ensureAlternativesCollectionPromise = (async () => {
+      const existsResult = await qdrantClient.collectionExists(QDRANT_ALTERNATIVES_COLLECTION)
+      const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
+
+      if (!exists) {
+        console.log(`Creating alternatives hybrid collection: ${QDRANT_ALTERNATIVES_COLLECTION}`)
+        await qdrantClient.createCollection(QDRANT_ALTERNATIVES_COLLECTION, {
+          vectors: {
+            dense: {
+              size: QDRANT_DENSE_VECTOR_SIZE,
+              distance: "Cosine",
+            },
+          },
+          sparse_vectors: {
+            sparse: {
+              index: {
+                on_disk: false, // Keep in RAM for speed
+              },
+            },
+          },
+        })
+        console.log("Alternatives hybrid collection created successfully")
+      }
+    })()
+  }
+
+  return ensureAlternativesCollectionPromise
+}
+
+/**
+ * Recreates the alternatives hybrid collection (useful for schema migrations)
+ * WARNING: This will delete all existing data in the collection
+ */
+export const recreateAlternativesCollection = async () => {
+  const existsResult = await qdrantClient.collectionExists(QDRANT_ALTERNATIVES_COLLECTION)
+  const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
+
+  if (exists) {
+    await qdrantClient.deleteCollection(QDRANT_ALTERNATIVES_COLLECTION)
+  }
+
+  // Reset the promise so it creates fresh
+  ensureAlternativesCollectionPromise = null
+  await ensureAlternativesCollection()
+}
+
+// ============================================================================
+// Categories Collection
+// ============================================================================
+
+let ensureCategoriesCollectionPromise: Promise<void> | null = null
+
+/**
+ * Ensures the categories hybrid collection exists with both dense and sparse vector configs
+ * Uses named vectors for Qdrant hybrid search with RRF fusion
+ */
+export const ensureCategoriesCollection = async () => {
+  if (!ensureCategoriesCollectionPromise) {
+    ensureCategoriesCollectionPromise = (async () => {
+      const existsResult = await qdrantClient.collectionExists(QDRANT_CATEGORIES_COLLECTION)
+      const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
+
+      if (!exists) {
+        console.log(`Creating categories hybrid collection: ${QDRANT_CATEGORIES_COLLECTION}`)
+        await qdrantClient.createCollection(QDRANT_CATEGORIES_COLLECTION, {
+          vectors: {
+            dense: {
+              size: QDRANT_DENSE_VECTOR_SIZE,
+              distance: "Cosine",
+            },
+          },
+          sparse_vectors: {
+            sparse: {
+              index: {
+                on_disk: false, // Keep in RAM for speed
+              },
+            },
+          },
+        })
+        console.log("Categories hybrid collection created successfully")
+      }
+    })()
+  }
+
+  return ensureCategoriesCollectionPromise
+}
+
+/**
+ * Recreates the categories hybrid collection (useful for schema migrations)
+ * WARNING: This will delete all existing data in the collection
+ */
+export const recreateCategoriesCollection = async () => {
+  const existsResult = await qdrantClient.collectionExists(QDRANT_CATEGORIES_COLLECTION)
+  const exists = typeof existsResult === "boolean" ? existsResult : existsResult?.exists
+
+  if (exists) {
+    await qdrantClient.deleteCollection(QDRANT_CATEGORIES_COLLECTION)
+  }
+
+  // Reset the promise so it creates fresh
+  ensureCategoriesCollectionPromise = null
+  await ensureCategoriesCollection()
 }
