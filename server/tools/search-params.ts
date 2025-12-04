@@ -4,8 +4,9 @@ import {
   parseAsInteger,
   parseAsString,
 } from "nuqs/server"
+import { normalizeSearchMode, type SearchMode } from "~/lib/search/types"
 
-export type SearchMode = "keyword" | "semantic" | "hybrid"
+export type { SearchMode }
 
 export const searchParams = {
   q: parseAsString,
@@ -21,3 +22,5 @@ export const searchParams = {
 export const searchParamsCache = createSearchParamsCache(searchParams)
 
 export type FilterSchema = Awaited<ReturnType<typeof searchParamsCache.parse>>
+
+export const resolveSearchMode = (mode?: string | null): SearchMode => normalizeSearchMode(mode)

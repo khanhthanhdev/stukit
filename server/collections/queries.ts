@@ -10,7 +10,7 @@ export const findCollections = async ({
   return prisma.collection.findMany({
     ...args,
     orderBy: { name: "asc", ...orderBy },
-    where: { tools: { some: { publishedAt: { lte: new Date() } } }, ...where },
+    where,
     include: collectionManyPayload,
   })
 }
@@ -23,7 +23,7 @@ export const findCollectionSlugs = async ({
   return prisma.collection.findMany({
     ...args,
     orderBy: { name: "asc", ...orderBy },
-    where: { tools: { some: { publishedAt: { lte: new Date() } } }, ...where },
+    where,
     select: { slug: true },
   })
 }

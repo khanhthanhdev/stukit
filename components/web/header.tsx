@@ -1,20 +1,22 @@
 "use client"
 
-import { SparkleIcon } from "lucide-react"
+import { SearchIcon, SparkleIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { type HTMLAttributes, Suspense, useEffect, useState } from "react"
+import { type HTMLAttributes, useEffect, useState } from "react"
 import { Box } from "~/components/common/box"
 import { Logo } from "~/components/common/logo"
-import { SearchForm } from "~/components/web/search-form"
 import { Button } from "~/components/web/ui/button"
 import { Container } from "~/components/web/ui/container"
 import { NavigationLink } from "~/components/web/ui/navigation-link"
+import { Shortcut } from "~/components/web/ui/shortcut"
 import { cx } from "~/utils/cva"
+import { useCommandPalette } from "~/contexts/command-palette-context"
 
 export const Header = ({ className, ...props }: HTMLAttributes<HTMLElement>) => {
   const pathname = usePathname()
   const [isNavOpen, setNavOpen] = useState(false)
+  const palette = useCommandPalette()
 
   // Close the mobile navigation when the user presses the "Escape" key
   useEffect(() => {
@@ -90,9 +92,20 @@ export const Header = ({ className, ...props }: HTMLAttributes<HTMLElement>) => 
             <NavigationLink href="/collections">Collections</NavigationLink>
           </nav>
 
-          <Suspense>
-            <SearchForm className="lg:-mx-2" />
-          </Suspense>
+          <Button
+            size="md"
+            variant="secondary"
+            prefix={<SearchIcon className="size-4" />}
+            className="max-sm:px-2"
+            onClick={palette.open}
+          >
+            <span className="flex items-center gap-2">
+              Search
+              <Shortcut size="h6" className="text-[11px] text-muted-foreground/80">
+                ⌘K
+              </Shortcut>
+            </span>
+          </Button>
 
           <Button size="md" variant="primary" suffix={<SparkleIcon />} className="-mr-1.5" asChild>
             <Link href="/submit">Submit</Link>

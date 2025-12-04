@@ -103,7 +103,7 @@ export const CommandMenu = () => {
   }
 
   return (
-    <CommandDialog open={open} onOpenChange={handleOpenChange}>
+    <CommandDialog open={open} onOpenChange={handleOpenChange} shouldFilter={!searchResults}>
       <CommandInput placeholder="Type to search..." onValueChange={handleSearch} />
 
       {isPending && (

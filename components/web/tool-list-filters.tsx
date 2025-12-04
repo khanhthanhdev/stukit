@@ -8,7 +8,7 @@ import { Input } from "~/components/web/ui/input"
 import { Select } from "~/components/web/ui/select"
 import { useDebounce } from "~/hooks/use-debounce"
 import type { CategoryMany } from "~/server/categories/payloads"
-import { searchParams, type SearchMode } from "~/server/tools/search-params"
+import { searchParams, type SearchMode, resolveSearchMode } from "~/server/tools/search-params"
 
 export type ToolListFiltersProps = {
   categories?: CategoryMany[]
@@ -51,10 +51,12 @@ export const ToolListFilters = ({
 
   const modeOptions: { value: SearchMode; label: string; icon: typeof TypeIcon }[] = [
     { value: "keyword", label: "Keyword", icon: TypeIcon },
-    { value: "hybrid", label: "AI Search", icon: SparklesIcon },
+    { value: "semantic", label: "AI Search", icon: SparklesIcon },
   ]
+  const modeTooltip =
+    "Keyword: fast text filtering. Semantic: AI-powered hybrid search with automatic keyword fallback."
 
-  const currentMode = (filters.mode || "keyword") as SearchMode
+  const currentMode = resolveSearchMode(filters.mode)
   const hasSearchQuery = Boolean(inputValue.trim())
 
   return (
@@ -79,7 +81,7 @@ export const ToolListFilters = ({
           className="min-w-32 max-sm:flex-1"
           value={currentMode}
           onChange={e => updateFilters({ mode: e.target.value as SearchMode })}
-          title="Search mode"
+          title={modeTooltip}
         >
           {modeOptions.map(option => (
             <option key={option.value} value={option.value}>

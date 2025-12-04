@@ -1,11 +1,9 @@
 "use client"
 
-import type { DialogProps } from "@radix-ui/react-dialog"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, XIcon } from "lucide-react"
 import * as React from "react"
-import { Dialog, DialogContent, DialogTitle } from "~/components/admin/ui/dialog"
-import { ScrollArea } from "~/components/admin/ui/scroll-area"
 import { cx } from "~/utils/cva"
 
 const Command = React.forwardRef<
@@ -15,7 +13,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cx(
-      "flex size-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+      "flex size-full flex-col overflow-hidden rounded-2xl bg-card/90 text-foreground backdrop-blur",
       className,
     )}
     {...props}
@@ -23,21 +21,30 @@ const Command = React.forwardRef<
 ))
 Command.displayName = CommandPrimitive.displayName
 
-interface CommandDialogProps extends DialogProps {
+interface CommandDialogProps extends DialogPrimitive.DialogProps {
   shouldFilter?: boolean
 }
 
 const CommandDialog = ({ children, shouldFilter = true, ...props }: CommandDialogProps) => {
   return (
-    <Dialog {...props}>
-      <DialogContent className="overflow-hidden !p-0 max-w-sm rounded-md">
-        <DialogTitle className="sr-only">Command Menu</DialogTitle>
+    <DialogPrimitive.Root {...props}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0" />
 
-        <Command shouldFilter={shouldFilter} className="[&_[cmdk-group]]:p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground/75 [&_[cmdk-input]]:h-12">
-          {children}
-        </Command>
-      </DialogContent>
-    </Dialog>
+        <DialogPrimitive.Content className="fixed z-50 left-1/2 top-[16%] w-[min(720px,calc(100%-1.5rem))] -translate-x-1/2 overflow-hidden rounded-2xl border bg-card/90 shadow-2xl backdrop-blur data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:zoom-out-95">
+          <DialogPrimitive.Title className="sr-only">Search</DialogPrimitive.Title>
+
+          <Command shouldFilter={shouldFilter} className="grid gap-1">
+            {children}
+          </Command>
+
+          <DialogPrimitive.Close className="absolute right-3 top-3 grid place-items-center rounded-full border p-1 text-muted-foreground hover:text-foreground">
+            <XIcon className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -45,40 +52,43 @@ const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
-  <div className="flex items-center gap-2 border-b px-3" cmdk-input-wrapper="">
+  <div className="relative flex items-center gap-2 border-b px-3 py-2" cmdk-input-wrapper="">
     <SearchIcon className="size-4 shrink-0 opacity-50" />
 
     <CommandPrimitive.Input
       ref={ref}
       className={cx(
-        "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-11 w-full rounded-md bg-transparent text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
     />
   </div>
 ))
-
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
 >(({ className, ...props }, ref) => (
-  <ScrollArea>
-    <CommandPrimitive.List ref={ref} className={cx("max-h-72", className)} {...props} />
-  </ScrollArea>
+  <CommandPrimitive.List
+    ref={ref}
+    className={cx("max-h-[65vh] overflow-y-auto pl-1 pr-10 pb-1", className)}
+    {...props}
+  />
 ))
-
 CommandList.displayName = CommandPrimitive.List.displayName
 
 const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
->((props, ref) => (
-  <CommandPrimitive.Empty ref={ref} className="py-6 text-center text-sm" {...props} />
+>(({ className, ...props }, ref) => (
+  <CommandPrimitive.Empty
+    ref={ref}
+    className={cx("py-6 text-center text-sm text-muted-foreground", className)}
+    {...props}
+  />
 ))
-
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName
 
 const CommandGroup = React.forwardRef<
@@ -88,13 +98,12 @@ const CommandGroup = React.forwardRef<
   <CommandPrimitive.Group
     ref={ref}
     className={cx(
-      "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+      "overflow-hidden p-1.5 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-[12px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
       className,
     )}
     {...props}
   />
 ))
-
 CommandGroup.displayName = CommandPrimitive.Group.displayName
 
 const CommandSeparator = React.forwardRef<
@@ -103,7 +112,7 @@ const CommandSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Separator
     ref={ref}
-    className={cx("-mx-1 h-px bg-border", className)}
+    className={cx("-mx-1 my-1 h-px bg-border/70", className)}
     {...props}
   />
 ))
@@ -116,23 +125,17 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cx(
-      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 scroll-m-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled='true']:pointer-events-none data-[disabled='true']:opacity-50",
+      "relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled='true']:pointer-events-none data-[disabled='true']:opacity-50",
       className,
     )}
     {...props}
   />
 ))
-
 CommandItem.displayName = CommandPrimitive.Item.displayName
 
-const CommandShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => {
-  return (
-    <span
-      className={cx("ml-auto text-xs tracking-widest text-accent-foreground", className)}
-      {...props}
-    />
-  )
-}
+const CommandShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
+  <span className={cx("ml-auto text-[11px] tracking-wide text-muted-foreground", className)} {...props} />
+)
 CommandShortcut.displayName = "CommandShortcut"
 
 export {

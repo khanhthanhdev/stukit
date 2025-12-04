@@ -14,6 +14,19 @@ export type SearchConfig = {
   efSearch: number
   /** Prefetch limit for hybrid search (used in RRF fusion) */
   prefetchLimit: number
+  /** Maximum duration (ms) before a search attempt is considered timed out */
+  timeoutMs: number
+  /** Embedding cache configuration */
+  embeddingCache: {
+    maxEntries: number
+    ttlMs: number
+  }
+  /** Circuit breaker configuration for Qdrant calls */
+  circuitBreaker: {
+    failureThreshold: number
+    halfOpenAfterMs: number
+    successThreshold: number
+  }
 }
 
 /**
@@ -24,6 +37,16 @@ export const defaultSearchConfig: SearchConfig = {
   scoreThreshold: 0.0, // No threshold by default, let Qdrant return all results
   efSearch: 64, // Balanced accuracy vs speed
   prefetchLimit: 20, // Fetch more candidates for RRF fusion
+  timeoutMs: 10_000,
+  embeddingCache: {
+    maxEntries: 1000,
+    ttlMs: 5 * 60_000, // 5 minutes
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    halfOpenAfterMs: 30_000,
+    successThreshold: 3,
+  },
 }
 
 /**
@@ -35,6 +58,16 @@ export const adminSearchConfig: SearchConfig = {
   scoreThreshold: 0.0,
   efSearch: 64,
   prefetchLimit: 50,
+  timeoutMs: 10_000,
+  embeddingCache: {
+    maxEntries: 1000,
+    ttlMs: 5 * 60_000,
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    halfOpenAfterMs: 30_000,
+    successThreshold: 3,
+  },
 }
 
 /**
@@ -46,6 +79,16 @@ export const publicSearchConfig: SearchConfig = {
   scoreThreshold: 0.0,
   efSearch: 64,
   prefetchLimit: 20,
+  timeoutMs: 10_000,
+  embeddingCache: {
+    maxEntries: 1000,
+    ttlMs: 5 * 60_000,
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    halfOpenAfterMs: 30_000,
+    successThreshold: 3,
+  },
 }
 
 /**
@@ -57,6 +100,16 @@ export const recommendationConfig: SearchConfig = {
   scoreThreshold: 0.3, // Higher threshold for recommendations
   efSearch: 64,
   prefetchLimit: 30,
+  timeoutMs: 10_000,
+  embeddingCache: {
+    maxEntries: 1000,
+    ttlMs: 5 * 60_000,
+  },
+  circuitBreaker: {
+    failureThreshold: 5,
+    halfOpenAfterMs: 30_000,
+    successThreshold: 3,
+  },
 }
 
 /**
@@ -84,4 +137,3 @@ export const getSearchConfig = (
     efSearch: isProduction ? baseConfig.efSearch * 1.5 : baseConfig.efSearch,
   }
 }
-

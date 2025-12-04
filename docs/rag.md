@@ -44,7 +44,7 @@ npm install ai @ai-sdk/google @qdrant/js-client-rest fastembed zod
 
 1. The Query Router
 
-See src/router.ts for the full implementation using Gemini 2.5 Flash and generateObject.
+See lib/fused-query-router.ts for the fused implementation using Gemini 2.5 Flash and generateObject.
 
 2. Pre-Retrieval Strategies (TypeScript)
 

@@ -1,7 +1,22 @@
 import type { Prisma } from "@prisma/client"
 import type { SearchParams } from "nuqs/server"
+import { getSearchConfig, type SearchConfig } from "~/config/search"
 import { auth } from "~/lib/auth"
-import { getSearchConfig } from "~/config/search"
+import { runWithEmbeddingCache } from "~/lib/embedding-cache"
+import {
+  CircuitBreaker,
+  SearchOrchestrator,
+  type SearchExecuteOptions,
+  type SearchStrategy,
+} from "~/lib/search-strategy"
+import { createLogger } from "~/lib/logger"
+import { SearchError, SearchErrorCode, toSearchErrorInfo } from "~/lib/search-errors"
+import {
+  normalizeSearchMode,
+  type SearchMode,
+  type SearchResult,
+  type SearchResultMetadata,
+} from "~/lib/search/types"
 import {
   type ToolVectorMatch,
   type AlternativeVectorMatch,
@@ -10,11 +25,10 @@ import {
   searchAlternativeVectors,
 } from "~/lib/vector-store"
 import { toolManyPayload, toolOnePayload } from "~/server/tools/payloads"
-import { type SearchMode, searchParamsCache } from "~/server/tools/search-params"
+import { searchParamsCache } from "~/server/tools/search-params"
 import { prisma } from "~/services/prisma"
 
-const RRF_K = 60
-
+const log = createLogger("tool-search")
 type SortConfig = {
   sortBy: keyof Prisma.ToolOrderByWithRelationInput
   sortOrder: "asc" | "desc"
@@ -28,22 +42,28 @@ const allowedSortColumns: ReadonlyArray<keyof Prisma.ToolOrderByWithRelationInpu
   "updatedAt",
 ]
 
-const computeRRFScore = (keywordRank: number | null, semanticRank: number | null): number => {
-  let score = 0
-  if (keywordRank !== null) score += 1 / (RRF_K + keywordRank)
-  if (semanticRank !== null) score += 1 / (RRF_K + semanticRank)
-  return score
+type ToolEntity = Awaited<ReturnType<typeof prisma.tool.findMany>>[number]
+type ToolSearchResult = SearchResult<ToolEntity, ToolVectorMatch>
+type AlternativeSearchResult = SearchResult<ToolEntity, AlternativeVectorMatch>
+type ParsedToolSearchParams = Awaited<ReturnType<typeof searchParamsCache.parse>>
+
+type ToolSearchContext = {
+  params: ParsedToolSearchParams
+  prismaArgs: Prisma.ToolFindManyArgs
+  searchConfig: SearchConfig
 }
 
-/**
- * Search result metadata indicating how results were matched
- */
-export type SearchResultMetadata = {
-  matchType: "keyword" | "semantic" | "hybrid" | "fallback"
-  usedQdrant: boolean
-  qdrantResultCount?: number
-  keywordResultCount?: number
-  hasFallback: boolean
+const defaultMetadata = (overrides: Partial<SearchResultMetadata> = {}): SearchResultMetadata => {
+  const errors = overrides.errors?.filter(Boolean)
+
+  return {
+    mode: "keyword",
+    matchType: "keyword",
+    usedQdrant: false,
+    hasFallback: false,
+    ...overrides,
+    errors: errors?.length ? errors : undefined,
+  }
 }
 
 const parseSort = (sort: string): SortConfig => {
@@ -58,19 +78,33 @@ const parseSort = (sort: string): SortConfig => {
   return { sortBy: sortBy as SortConfig["sortBy"], sortOrder: order }
 }
 
-export const searchTools = async (
-  searchParams: SearchParams,
-  { where, ...args }: Prisma.ToolFindManyArgs,
-) => {
-  const { q, category, page, sort, perPage } = searchParamsCache.parse(searchParams)
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => Error) => {
+  if (timeoutMs <= 0) return promise
 
-  // Values to paginate the results
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(onTimeout()), timeoutMs)
+
+    promise
+      .then(result => {
+        clearTimeout(timer)
+        resolve(result)
+      })
+      .catch(error => {
+        clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
+const keywordSearch = async (
+  context: ToolSearchContext,
+  metadataOverrides: Partial<SearchResultMetadata> = {},
+): Promise<ToolSearchResult> => {
+  const { params, prismaArgs } = context
+  const { q, category, page, sort, perPage } = params
+  const { where, ...args } = prismaArgs
   const skip = (page - 1) * perPage
   const take = perPage
-
-  // Column and order to sort by
-  // Spliting the sort string by "." to get the column and order
-  // Example: "title.desc" => ["title", "desc"]
   const { sortBy, sortOrder } = parseSort(sort)
 
   const whereQuery: Prisma.ToolWhereInput = {
@@ -82,6 +116,8 @@ export const searchTools = async (
       ],
     }),
   }
+
+  const startedAt = Date.now()
 
   const [tools, totalCount] = await prisma.$transaction([
     prisma.tool.findMany({
@@ -98,143 +134,289 @@ export const searchTools = async (
     }),
   ])
 
-  return { tools, totalCount }
-}
-
-export const searchToolsHybrid = async (
-  searchParams: SearchParams,
-  { where, ...args }: Prisma.ToolFindManyArgs = {},
-) => {
-  const { q, category, page, perPage } = searchParamsCache.parse(searchParams)
-  const searchConfig = getSearchConfig("public")
-
-  if (!q) {
-    return {
-      tools: [],
-      totalCount: 0,
-      matches: [] as ToolVectorMatch[],
-      metadata: {
-        matchType: "keyword",
-        usedQdrant: false,
-        hasFallback: false,
-      } as SearchResultMetadata,
-    }
-  }
-
-  const offset = (page - 1) * perPage
-  let matches: ToolVectorMatch[] = []
-  let usedQdrant = false
-  let hasFallback = false
-
-  try {
-    // Try hybrid search first (better quality)
-    matches = await hybridSearchToolVectors(q, {
-      category: category || undefined,
-      limit: perPage,
-      prefetchLimit: searchConfig.prefetchLimit,
-    })
-    usedQdrant = true
-
-    // Filter by score threshold if configured
-    if (searchConfig.scoreThreshold > 0) {
-      matches = matches.filter(m => m.score >= searchConfig.scoreThreshold)
-    }
-  } catch (error) {
-    console.warn("Qdrant hybrid search failed, falling back to semantic search:", error)
-    try {
-      // Fallback to semantic search
-      matches = await searchToolVectors(q, {
-        category: category || undefined,
-        limit: perPage,
-        offset,
-        scoreThreshold: searchConfig.scoreThreshold,
-      })
-      usedQdrant = true
-    } catch (semanticError) {
-      console.warn("Qdrant semantic search also failed:", semanticError)
-      usedQdrant = false
-    }
-  }
-
-  // If no Qdrant results, fallback to keyword search
-  if (!matches.length) {
-    hasFallback = true
-    const keywordWhere: Prisma.ToolWhereInput = {
-      publishedAt: { lte: new Date() },
-      ...(category && { categories: { some: { slug: category } } }),
-      ...where,
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } },
-      ],
-    }
-
-    const keywordTools = await prisma.tool.findMany({
-      ...args,
-      where: keywordWhere,
-      include: toolManyPayload,
-      take: perPage,
-      skip: offset,
-    })
-
-    const keywordCount = await prisma.tool.count({
-      where: keywordWhere,
-    })
-
-    return {
-      tools: keywordTools,
-      totalCount: keywordCount,
-      matches: [] as ToolVectorMatch[],
-      metadata: {
-        matchType: "fallback",
-        usedQdrant: false,
-        keywordResultCount: keywordCount,
-        hasFallback: true,
-      } as SearchResultMetadata,
-    }
-  }
-
-  const ids = matches.map(match => match.payload.id)
-  const categoryFilter: Prisma.ToolWhereInput | undefined = category
-    ? { categories: { some: { slug: category } } }
-    : undefined
-
-  const prismaTools = await prisma.tool.findMany({
-    ...args,
-    where: {
-      id: { in: ids },
-      publishedAt: { lte: new Date() },
-      ...categoryFilter,
-      ...where,
+  const metadata = defaultMetadata({
+    ...metadataOverrides,
+    mode: "keyword",
+    keywordResultCount: totalCount,
+    timings: {
+      totalMs: Date.now() - startedAt,
+      ...metadataOverrides.timings,
     },
-    include: toolManyPayload,
   })
 
-  const toolMap = new Map(prismaTools.map(tool => [tool.id, tool]))
-
-  const ordered = matches
-    .map(match => {
-      const tool = toolMap.get(match.payload.id)
-      if (!tool) return null
-
-      return { tool, match }
-    })
-    .filter((entry): entry is { tool: (typeof prismaTools)[number]; match: ToolVectorMatch } =>
-      Boolean(entry),
-    )
-
   return {
-    tools: ordered.map(entry => entry.tool),
-    totalCount: ordered.length,
-    matches: ordered.map(entry => entry.match),
-    metadata: {
-      matchType: "hybrid",
-      usedQdrant: true,
-      qdrantResultCount: matches.length,
-      hasFallback: false,
-    } as SearchResultMetadata,
+    items: tools,
+    totalCount,
+    matches: [],
+    metadata,
   }
 }
+
+// Strategy implementations consumed by the search orchestrator (keyword + semantic modes)
+class ToolKeywordSearchStrategy
+  implements SearchStrategy<ToolEntity, ToolVectorMatch, ToolSearchContext>
+{
+  canHandle(mode: SearchMode) {
+    return mode === "keyword"
+  }
+
+  async execute(
+    _query: string,
+    { context, metadata, mode }: SearchExecuteOptions<ToolSearchContext>,
+  ): Promise<ToolSearchResult> {
+    const mergedMetadata: Partial<SearchResultMetadata> = {
+      requestedMode: metadata?.requestedMode ?? mode,
+      ...metadata,
+      mode: "keyword",
+      matchType: metadata?.matchType ?? (metadata?.hasFallback ? "fallback" : "keyword"),
+      usedQdrant: false,
+    }
+
+    return keywordSearch(context, mergedMetadata)
+  }
+}
+
+class ToolSemanticSearchStrategy
+  implements SearchStrategy<ToolEntity, ToolVectorMatch, ToolSearchContext>
+{
+  canHandle(mode: SearchMode) {
+    return mode === "semantic"
+  }
+
+  async execute(
+    query: string,
+    { context, metadata, mode }: SearchExecuteOptions<ToolSearchContext>,
+  ): Promise<ToolSearchResult> {
+    const { params, prismaArgs, searchConfig } = context
+    const { category, perPage } = params
+    const requestedMode = metadata?.requestedMode ?? mode
+    const startedAt = Date.now()
+    const errors: SearchResultMetadata["errors"] = metadata?.errors ? [...metadata.errors] : []
+
+    let matches: ToolVectorMatch[] = []
+    let usedQdrant = false
+    let vectorMs: number | undefined
+    let hydrateMs: number | undefined
+
+    try {
+      const vectorStart = Date.now()
+      const semanticResults = hybridSearchToolVectors(query, {
+        category: category || undefined,
+        limit: perPage,
+        prefetchLimit: searchConfig.prefetchLimit,
+      })
+
+      matches = await withTimeout(
+        semanticResults,
+        searchConfig.timeoutMs,
+        () =>
+          new SearchError(SearchErrorCode.TIMEOUT, "Search timed out", {
+            context: { query },
+            retryable: false,
+          }),
+      )
+      vectorMs = Date.now() - vectorStart
+      usedQdrant = true
+
+      if (searchConfig.scoreThreshold > 0) {
+        matches = matches.filter(match => match.score >= searchConfig.scoreThreshold)
+      }
+    } catch (error) {
+      log.error("Semantic search failed", {
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      })
+
+      if (error instanceof SearchError) {
+        throw error
+      }
+
+      throw new SearchError(SearchErrorCode.QDRANT_UNAVAILABLE, "Semantic search failed", {
+        cause: error,
+        context: { query },
+        retryable: false,
+      })
+    }
+
+    if (!matches.length) {
+      errors.push(
+        toSearchErrorInfo(new Error("No semantic results above threshold"), undefined, {
+          context: { query, reason: "NO_RESULTS" },
+        }),
+      )
+    }
+
+    if (!matches.length) {
+      return {
+        items: [],
+        totalCount: 0,
+        matches: [],
+        metadata: defaultMetadata({
+          ...metadata,
+          mode: "semantic",
+          requestedMode,
+          matchType: "semantic",
+          usedQdrant,
+          qdrantResultCount: 0,
+          timings: { totalMs: Date.now() - startedAt, vectorMs },
+        }),
+      }
+    }
+
+    const ids = matches.map(match => match.payload.id)
+    const categoryFilter: Prisma.ToolWhereInput | undefined = category
+      ? { categories: { some: { slug: category } } }
+      : undefined
+    const { where, ...args } = prismaArgs
+
+    const hydrateStartedAt = Date.now()
+    const prismaTools = await prisma.tool.findMany({
+      ...args,
+      where: {
+        id: { in: ids },
+        publishedAt: { lte: new Date() },
+        ...categoryFilter,
+        ...where,
+      },
+      include: toolManyPayload,
+    })
+    hydrateMs = Date.now() - hydrateStartedAt
+
+    const toolMap = new Map(prismaTools.map(tool => [tool.id, tool]))
+
+    const ordered = matches
+      .map(match => {
+        const tool = toolMap.get(match.payload.id)
+        if (!tool) return null
+
+        return { tool, match }
+      })
+      .filter((entry): entry is { tool: (typeof prismaTools)[number]; match: ToolVectorMatch } =>
+        Boolean(entry),
+      )
+
+    const metadataResult = defaultMetadata({
+      ...metadata,
+      mode: "semantic",
+      requestedMode,
+      matchType: "semantic",
+      usedQdrant,
+      qdrantResultCount: matches.length,
+      hasFallback: metadata?.hasFallback ?? false,
+      errors: errors.length ? errors : undefined,
+      timings: {
+        totalMs: Date.now() - startedAt,
+        vectorMs,
+        hydrateMs,
+      },
+    })
+
+    return {
+      items: ordered.map(entry => entry.tool),
+      totalCount: ordered.length,
+      matches: ordered.map(entry => entry.match),
+      metadata: metadataResult,
+    }
+  }
+}
+
+const toolCircuitBreaker = new CircuitBreaker(getSearchConfig("public").circuitBreaker)
+const keywordStrategy = new ToolKeywordSearchStrategy()
+const semanticStrategy = new ToolSemanticSearchStrategy()
+
+const toolSearchOrchestrator = new SearchOrchestrator<
+  ToolEntity,
+  ToolVectorMatch,
+  ToolSearchContext
+>({
+  strategies: [semanticStrategy, keywordStrategy],
+  fallbackStrategy: keywordStrategy,
+  circuitBreaker: toolCircuitBreaker,
+  logger: log,
+})
+
+const buildToolContext = (
+  params: ParsedToolSearchParams,
+  prismaArgs: Prisma.ToolFindManyArgs,
+): ToolSearchContext => ({
+  params,
+  prismaArgs,
+  searchConfig: getSearchConfig("public"),
+})
+
+const runToolSearch = async (
+  parsedParams: ParsedToolSearchParams,
+  prismaArgs: Prisma.ToolFindManyArgs,
+  requestedMode?: SearchResultMetadata["requestedMode"],
+): Promise<ToolSearchResult> => {
+  const searchMode = normalizeSearchMode(parsedParams.mode)
+  const query = parsedParams.q?.trim() ?? ""
+  const metadata: Partial<SearchResultMetadata> = {
+    requestedMode:
+      requestedMode ?? (parsedParams.mode as SearchResultMetadata["requestedMode"]),
+  }
+  const context = buildToolContext(parsedParams, prismaArgs)
+
+  if (!query) {
+    const keywordResult = await keywordStrategy.execute(query, {
+      mode: "keyword",
+      context,
+      metadata: {
+        ...metadata,
+        matchType: searchMode === "keyword" ? "keyword" : "fallback",
+        hasFallback: searchMode !== "keyword",
+      },
+    })
+
+    return {
+      ...keywordResult,
+      metadata: {
+        ...keywordResult.metadata,
+        requestedMode: metadata.requestedMode,
+        hasFallback: searchMode !== "keyword",
+        matchType: searchMode === "keyword" ? "keyword" : "fallback",
+        circuitBreakerState: toolCircuitBreaker.getState(),
+      },
+    }
+  }
+
+  return toolSearchOrchestrator.search(searchMode, query, context, metadata)
+}
+
+/**
+ * Unified tool search entry point.
+ * Routes keyword vs semantic modes through the search orchestrator with circuit breaker + fallback metadata.
+ */
+export const searchTools = async (
+  searchParams: SearchParams,
+  args: Prisma.ToolFindManyArgs = {},
+): Promise<ToolSearchResult> =>
+  runWithEmbeddingCache(() => runToolSearch(searchParamsCache.parse(searchParams), args))
+
+/** @deprecated Use searchTools with mode="semantic" */
+export const searchToolsHybrid = (
+  searchParams: SearchParams,
+  args: Prisma.ToolFindManyArgs = {},
+): Promise<ToolSearchResult> =>
+  runWithEmbeddingCache(() =>
+    runToolSearch(
+      { ...searchParamsCache.parse(searchParams), mode: "semantic" },
+      args,
+      "hybrid",
+    ),
+  )
+
+/** @deprecated Use searchTools with mode="semantic" */
+export const searchToolsCombined = (
+  searchParams: SearchParams,
+  args: Prisma.ToolFindManyArgs = {},
+): Promise<ToolSearchResult> => searchTools(searchParams, args)
+
+/** @deprecated Use searchTools with explicit mode */
+export const searchToolsUnified = (
+  searchParams: SearchParams,
+  args: Prisma.ToolFindManyArgs = {},
+): Promise<ToolSearchResult> => searchTools(searchParams, args)
 
 export const findTools = async ({ where, ...args }: Prisma.ToolFindManyArgs) => {
   return prisma.tool.findMany({
@@ -284,329 +466,177 @@ export const findFirstTool = async ({ where, ...args }: Prisma.ToolFindFirstArgs
   })
 }
 
-export const searchToolsCombined = async (
-  searchParams: SearchParams,
-  { where, ...args }: Prisma.ToolFindManyArgs = {},
-) => {
-  const { q, category, page, perPage } = searchParamsCache.parse(searchParams)
-  const searchConfig = getSearchConfig("public")
-
-  if (!q) {
-    return {
-      tools: [],
-      totalCount: 0,
-      matches: [] as ToolVectorMatch[],
-      metadata: {
-        matchType: "keyword",
-        usedQdrant: false,
-        hasFallback: false,
-      } as SearchResultMetadata,
-    }
-  }
-
-  const categoryFilter: Prisma.ToolWhereInput | undefined = category
-    ? { categories: { some: { slug: category } } }
-    : undefined
-
-  const keywordWhere: Prisma.ToolWhereInput = {
-    publishedAt: { lte: new Date() },
-    ...categoryFilter,
-    ...where,
-    OR: [
-      { name: { contains: q, mode: "insensitive" } },
-      { description: { contains: q, mode: "insensitive" } },
-    ],
-  }
-
-  let semanticMatches: ToolVectorMatch[] = []
-  let usedQdrant = false
-  let hasFallback = false
-
-  // Try Qdrant hybrid search first, fallback to semantic, then keyword-only
-  try {
-    semanticMatches = await hybridSearchToolVectors(q, {
-      category: category || undefined,
-      limit: perPage * 2,
-      prefetchLimit: searchConfig.prefetchLimit,
-    })
-    usedQdrant = true
-
-    // Filter by score threshold if configured
-    if (searchConfig.scoreThreshold > 0) {
-      semanticMatches = semanticMatches.filter(m => m.score >= searchConfig.scoreThreshold)
-    }
-  } catch (error) {
-    console.warn("Qdrant hybrid search failed, trying semantic search:", error)
-    try {
-      semanticMatches = await searchToolVectors(q, {
-        category: category || undefined,
-        limit: perPage * 2,
-        scoreThreshold: searchConfig.scoreThreshold,
-      })
-      usedQdrant = true
-    } catch (semanticError) {
-      console.warn("Qdrant semantic search also failed, using keyword-only:", semanticError)
-      usedQdrant = false
-    }
-  }
-
-  // Always run keyword search in parallel (or as fallback)
-  const [keywordResults] = await Promise.all([
-    prisma.tool.findMany({
-      ...args,
-      where: keywordWhere,
-      include: toolManyPayload,
-      take: perPage * 2,
-    }),
-  ])
-
-  // If no Qdrant results, use keyword-only
-  if (!semanticMatches.length && !usedQdrant) {
-    hasFallback = true
-    const offset = (page - 1) * perPage
-    const keywordCount = await prisma.tool.count({ where: keywordWhere })
-
-    return {
-      tools: keywordResults.slice(offset, offset + perPage),
-      totalCount: keywordCount,
-      matches: [] as ToolVectorMatch[],
-      metadata: {
-        matchType: "fallback",
-        usedQdrant: false,
-        keywordResultCount: keywordCount,
-        hasFallback: true,
-      } as SearchResultMetadata,
-    }
-  }
-
-  const keywordRankMap = new Map(keywordResults.map((tool, idx) => [tool.id, idx + 1]))
-  const semanticRankMap = new Map(semanticMatches.map((match, idx) => [match.payload.id, idx + 1]))
-
-  const allIds = new Set([
-    ...keywordResults.map(t => t.id),
-    ...semanticMatches.map(m => m.payload.id),
-  ])
-
-  const scored = Array.from(allIds).map(id => ({
-    id,
-    score: computeRRFScore(keywordRankMap.get(id) ?? null, semanticRankMap.get(id) ?? null),
-    keywordRank: keywordRankMap.get(id) ?? null,
-    semanticRank: semanticRankMap.get(id) ?? null,
-  }))
-
-  scored.sort((a, b) => b.score - a.score)
-
-  const offset = (page - 1) * perPage
-  const paged = scored.slice(offset, offset + perPage)
-  const pagedIds = paged.map(s => s.id)
-
-  const tools = await prisma.tool.findMany({
-    ...args,
-    where: { id: { in: pagedIds }, publishedAt: { lte: new Date() } },
-    include: toolManyPayload,
-  })
-
-  const toolMap = new Map(tools.map(t => [t.id, t]))
-  const orderedTools = pagedIds.map(id => toolMap.get(id)).filter(Boolean) as typeof tools
-
-  const matchMap = new Map(semanticMatches.map(m => [m.payload.id, m]))
-  const orderedMatches = pagedIds
-    .map(id => matchMap.get(id))
-    .filter((m): m is ToolVectorMatch => Boolean(m))
-
-  return {
-    tools: orderedTools,
-    totalCount: scored.length,
-    matches: orderedMatches,
-    metadata: {
-      matchType: "hybrid",
-      usedQdrant: usedQdrant,
-      qdrantResultCount: semanticMatches.length,
-      keywordResultCount: keywordResults.length,
-      hasFallback: hasFallback,
-    } as SearchResultMetadata,
-  }
-}
-
-export const searchToolsUnified = async (
-  searchParams: SearchParams,
-  args: Prisma.ToolFindManyArgs = {},
-) => {
-  const { mode, q } = searchParamsCache.parse(searchParams)
-  const searchMode = (mode || "keyword") as SearchMode
-
-  if (!q && searchMode !== "keyword") {
-    return {
-      tools: [],
-      totalCount: 0,
-      matches: [] as ToolVectorMatch[],
-      metadata: {
-        matchType: "keyword",
-        usedQdrant: false,
-        hasFallback: false,
-      } as SearchResultMetadata,
-    }
-  }
-
-  try {
-    switch (searchMode) {
-      case "semantic":
-        return await searchToolsHybrid(searchParams, args)
-      case "hybrid":
-        return await searchToolsCombined(searchParams, args)
-      default: {
-        const result = await searchTools(searchParams, args)
-        return {
-          ...result,
-          matches: [] as ToolVectorMatch[],
-          metadata: {
-            matchType: "keyword",
-            usedQdrant: false,
-            keywordResultCount: result.totalCount,
-            hasFallback: false,
-          } as SearchResultMetadata,
-        }
-      }
-    }
-  } catch (error) {
-    // Final fallback: if all Qdrant searches fail, use keyword search
-    console.error("Search failed, falling back to keyword search:", error)
-    const result = await searchTools(searchParams, args)
-    return {
-      ...result,
-      matches: [] as ToolVectorMatch[],
-      metadata: {
-        matchType: "fallback",
-        usedQdrant: false,
-        keywordResultCount: result.totalCount,
-        hasFallback: true,
-      } as SearchResultMetadata,
-    }
-  }
-}
-
 /**
- * Search alternatives using Qdrant vector search with fallback to keyword search
- * Returns tools (alternatives) with search metadata
+ * Unified alternative search entry point.
+ * Runs semantic (Qdrant hybrid) search with circuit-breaker gating and falls back to Prisma keyword search.
  */
 export const searchAlternatives = async (
   query: string,
   options: { limit?: number; offset?: number } = {},
-) => {
-  const searchConfig = getSearchConfig("public")
-  const { limit = searchConfig.limit, offset = 0 } = options
+): Promise<AlternativeSearchResult> =>
+  runWithEmbeddingCache(async () => {
+    const searchConfig = getSearchConfig("public")
+    const { limit = searchConfig.limit, offset = 0 } = options
+    const trimmedQuery = query.trim()
+    const requestedMode: SearchResultMetadata["requestedMode"] = "semantic"
+    const startedAt = Date.now()
+    const errors: SearchResultMetadata["errors"] = []
 
-  if (!query.trim()) {
+    if (!trimmedQuery) {
+      const tools = await prisma.tool.findMany({
+        where: { publishedAt: { lte: new Date() } },
+        include: toolManyPayload,
+        take: limit,
+        skip: offset,
+        orderBy: { name: "asc" },
+      })
+
+      const totalCount = await prisma.tool.count({
+        where: { publishedAt: { lte: new Date() } },
+      })
+
+      return {
+        items: tools,
+        totalCount,
+        matches: [],
+        metadata: defaultMetadata({
+          mode: "keyword",
+          requestedMode: "keyword",
+          keywordResultCount: totalCount,
+          circuitBreakerState: toolCircuitBreaker.getState(),
+          timings: { totalMs: Date.now() - startedAt },
+        }),
+      }
+    }
+
+    const canAttempt = toolCircuitBreaker.canAttempt()
+    let matches: AlternativeVectorMatch[] = []
+    let usedQdrant = false
+    let vectorMs: number | undefined
+
+    if (canAttempt) {
+      try {
+        const vectorStart = Date.now()
+        matches = await withTimeout(
+          searchAlternativeVectors(trimmedQuery, {
+            limit,
+            offset,
+            scoreThreshold: searchConfig.scoreThreshold,
+          }),
+          searchConfig.timeoutMs,
+          () =>
+            new SearchError(SearchErrorCode.TIMEOUT, "Search timed out", {
+              context: { query: trimmedQuery },
+              retryable: false,
+            }),
+        )
+        vectorMs = Date.now() - vectorStart
+        usedQdrant = true
+
+        if (searchConfig.scoreThreshold > 0) {
+          matches = matches.filter(m => m.score >= searchConfig.scoreThreshold)
+        }
+
+        toolCircuitBreaker.recordSuccess()
+      } catch (error) {
+        toolCircuitBreaker.recordFailure()
+        errors.push(
+          toSearchErrorInfo(error, SearchErrorCode.QDRANT_UNAVAILABLE, {
+            context: { query: trimmedQuery },
+          }),
+        )
+        usedQdrant = false
+      }
+    } else {
+      errors.push(
+        new SearchError(SearchErrorCode.QDRANT_UNAVAILABLE, "Circuit breaker open", {
+          retryable: false,
+          context: { query: trimmedQuery },
+        }).toJSON(),
+      )
+    }
+
+    const keywordFallback = async (): Promise<AlternativeSearchResult> => {
+      const keywordStart = Date.now()
+      const keywordTools = await prisma.tool.findMany({
+        where: {
+          publishedAt: { lte: new Date() },
+          OR: [
+            { name: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+        include: toolManyPayload,
+        take: limit,
+        skip: offset,
+        orderBy: { name: "asc" },
+      })
+      const keywordMs = Date.now() - keywordStart
+
+      const keywordCount = await prisma.tool.count({
+        where: {
+          publishedAt: { lte: new Date() },
+          OR: [
+            { name: { contains: trimmedQuery, mode: "insensitive" } },
+            { description: { contains: trimmedQuery, mode: "insensitive" } },
+          ],
+        },
+      })
+
+      return {
+        items: keywordTools,
+        totalCount: keywordCount,
+        matches: [],
+        metadata: defaultMetadata({
+          mode: "keyword",
+          requestedMode,
+          matchType: "fallback",
+          usedQdrant,
+          keywordResultCount: keywordCount,
+          hasFallback: true,
+          errors: errors.length ? errors : undefined,
+          circuitBreakerState: toolCircuitBreaker.getState(),
+          timings: { totalMs: Date.now() - startedAt, keywordMs },
+        }),
+      }
+    }
+
+    if (!matches.length) {
+      log.warn("Alternative search falling back to keyword results", {
+        query: trimmedQuery,
+        circuitBreaker: toolCircuitBreaker.getState(),
+      })
+      return keywordFallback()
+    }
+
+    const toolIds = matches.map(m => m.payload.id)
+    const hydrateStart = Date.now()
     const tools = await prisma.tool.findMany({
-      where: { publishedAt: { lte: new Date() } },
+      where: {
+        id: { in: toolIds },
+        publishedAt: { lte: new Date() },
+      },
       include: toolManyPayload,
-      take: limit,
-      skip: offset,
-      orderBy: { name: "asc" },
     })
+    const hydrateMs = Date.now() - hydrateStart
 
-    const totalCount = await prisma.tool.count({
-      where: { publishedAt: { lte: new Date() } },
-    })
+    const toolMap = new Map(tools.map(t => [t.id, t]))
+    const orderedTools = toolIds.map(id => toolMap.get(id)).filter(Boolean) as typeof tools
 
     return {
-      tools,
-      totalCount,
-      matches: [] as AlternativeVectorMatch[],
-      metadata: {
-        matchType: "keyword" as const,
-        usedQdrant: false,
-        keywordResultCount: totalCount,
+      items: orderedTools,
+      totalCount: orderedTools.length,
+      matches,
+      metadata: defaultMetadata({
+        mode: "semantic",
+        requestedMode,
+        matchType: "semantic",
+        usedQdrant: true,
+        qdrantResultCount: matches.length,
         hasFallback: false,
-      },
+        errors: errors.length ? errors : undefined,
+        circuitBreakerState: toolCircuitBreaker.getState(),
+        timings: { totalMs: Date.now() - startedAt, vectorMs, hydrateMs },
+      }),
     }
-  }
-
-  let matches: AlternativeVectorMatch[] = []
-  let usedQdrant = false
-  let hasFallback = false
-
-  try {
-    // Try Qdrant hybrid search for alternatives
-    matches = await searchAlternativeVectors(query, {
-      limit,
-      offset,
-      scoreThreshold: searchConfig.scoreThreshold,
-    })
-    usedQdrant = true
-
-    // Filter by score threshold if configured
-    if (searchConfig.scoreThreshold > 0) {
-      matches = matches.filter(m => m.score >= searchConfig.scoreThreshold)
-    }
-  } catch (error) {
-    console.warn("Qdrant alternative search failed, falling back to keyword search:", error)
-    usedQdrant = false
-  }
-
-  // If no Qdrant results, fallback to keyword search
-  if (!matches.length) {
-    hasFallback = true
-    const keywordTools = await prisma.tool.findMany({
-      where: {
-        publishedAt: { lte: new Date() },
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { description: { contains: query, mode: "insensitive" } },
-        ],
-      },
-      include: toolManyPayload,
-      take: limit,
-      skip: offset,
-      orderBy: { name: "asc" },
-    })
-
-    const keywordCount = await prisma.tool.count({
-      where: {
-        publishedAt: { lte: new Date() },
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { description: { contains: query, mode: "insensitive" } },
-        ],
-      },
-    })
-
-    return {
-      tools: keywordTools,
-      totalCount: keywordCount,
-      matches: [] as AlternativeVectorMatch[],
-      metadata: {
-        matchType: "fallback" as const,
-        usedQdrant: false,
-        keywordResultCount: keywordCount,
-        hasFallback: true,
-      },
-    }
-  }
-
-  // Hydrate full tool data from Prisma
-  const toolIds = matches.map(m => m.payload.id)
-  const tools = await prisma.tool.findMany({
-    where: {
-      id: { in: toolIds },
-      publishedAt: { lte: new Date() },
-    },
-    include: toolManyPayload,
   })
-
-  // Preserve order from vector search
-  const toolMap = new Map(tools.map(t => [t.id, t]))
-  const orderedTools = toolIds.map(id => toolMap.get(id)).filter(Boolean) as typeof tools
-
-  return {
-    tools: orderedTools,
-    totalCount: orderedTools.length,
-    matches,
-    metadata: {
-      matchType: "hybrid" as const,
-      usedQdrant: true,
-      qdrantResultCount: matches.length,
-      hasFallback: false,
-    },
-  }
-}

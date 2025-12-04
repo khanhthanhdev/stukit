@@ -1,8 +1,10 @@
 import crypto from "node:crypto"
 import type { Category, Tag, Tool } from "@prisma/client"
 import type { Schemas } from "@qdrant/js-client-rest"
+import { getSearchConfig } from "~/config/search"
+import { getCachedEmbedding } from "~/lib/embedding-cache"
 import { createLogger } from "~/lib/logger"
-import { generateGeminiEmbedding } from "~/services/gemini"
+import { generateGeminiEmbedding, GEMINI_EMBEDDING_MODEL } from "~/services/gemini"
 import { prisma } from "~/services/prisma"
 import {
   QDRANT_DENSE_VECTOR_SIZE,
@@ -19,6 +21,21 @@ import {
 } from "~/services/qdrant"
 
 const log = createLogger("vector-store")
+const embeddingCacheConfig = getSearchConfig("public").embeddingCache
+
+const getQueryEmbedding = async (query: string, outputDimensionality: number) => {
+  const { vector } = await getCachedEmbedding(
+    { query, model: GEMINI_EMBEDDING_MODEL, dimensions: outputDimensionality },
+    () =>
+      generateGeminiEmbedding(query, {
+        taskType: "RETRIEVAL_QUERY",
+        outputDimensionality,
+      }),
+    embeddingCacheConfig,
+  )
+
+  return vector
+}
 
 // ============================================================================
 // BM25-based Sparse Embedding (Pure TypeScript, no native deps)
@@ -209,10 +226,7 @@ export const searchToolVectors = async (
 ): Promise<ToolVectorMatch[]> => {
   await ensureToolsCollection()
 
-  const vector = await generateGeminiEmbedding(query, {
-    taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: QDRANT_TOOLS_VECTOR_SIZE,
-  })
+  const vector = await getQueryEmbedding(query, QDRANT_TOOLS_VECTOR_SIZE)
 
   const filter = buildFilter({ category })
   const results = await qdrantClient.search(QDRANT_TOOLS_COLLECTION, {
@@ -371,10 +385,7 @@ export const hybridSearchToolVectors = async (
 
   // Generate dense query vector (async) and sparse query vector (sync)
   const sparseQuery = generateSparseEmbedding(query)
-  const denseQuery = await generateGeminiEmbedding(query, {
-    taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
-  })
+  const denseQuery = await getQueryEmbedding(query, QDRANT_DENSE_VECTOR_SIZE)
 
   const filter = buildFilter({ category })
 
@@ -616,10 +627,7 @@ export const searchAlternativeVectors = async (
 
   // Generate dense query vector (async) and sparse query vector (sync)
   const sparseQuery = generateSparseEmbedding(query)
-  const denseQuery = await generateGeminiEmbedding(query, {
-    taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
-  })
+  const denseQuery = await getQueryEmbedding(query, QDRANT_DENSE_VECTOR_SIZE)
 
   // Execute hybrid search with RRF fusion
   const results = await qdrantClient.query(QDRANT_ALTERNATIVES_COLLECTION, {
@@ -829,10 +837,7 @@ export const searchCategoryVectors = async (
 
   // Generate dense query vector (async) and sparse query vector (sync)
   const sparseQuery = generateSparseEmbedding(query)
-  const denseQuery = await generateGeminiEmbedding(query, {
-    taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: QDRANT_DENSE_VECTOR_SIZE,
-  })
+  const denseQuery = await getQueryEmbedding(query, QDRANT_DENSE_VECTOR_SIZE)
 
   // Execute hybrid search with RRF fusion
   const results = await qdrantClient.query(QDRANT_CATEGORIES_COLLECTION, {

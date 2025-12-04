@@ -1,7 +1,6 @@
 import { generateText } from "ai"
 import { env } from "~/env"
-import type { QueryIntent } from "~/lib/query-router"
-import { fusedRouteQuery } from "~/lib/fused-query-router"
+import { fusedRouteQuery, type QueryIntent } from "~/lib/fused-query-router"
 import type { ToolVectorMatch } from "~/lib/vector-store"
 import {
   hybridSearchToolVectors,

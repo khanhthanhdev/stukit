@@ -6,7 +6,7 @@ export const findCategories = async ({ where, orderBy, ...args }: Prisma.Categor
   return prisma.category.findMany({
     ...args,
     orderBy: { name: "asc", ...orderBy },
-    where: { tools: { some: { publishedAt: { lte: new Date() } } }, ...where },
+    where,
     include: categoryManyPayload,
   })
 }
@@ -19,7 +19,7 @@ export const findCategorySlugs = async ({
   return prisma.category.findMany({
     ...args,
     orderBy: { name: "asc", ...orderBy },
-    where: { tools: { some: { publishedAt: { lte: new Date() } } }, ...where },
+    where,
     select: { slug: true },
   })
 }

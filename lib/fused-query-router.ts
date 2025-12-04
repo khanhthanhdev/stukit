@@ -52,6 +52,7 @@ export const FusedQueryResultSchema = z.object({
 })
 
 export type FusedQueryResult = z.infer<typeof FusedQueryResultSchema>
+export type QueryIntent = Pick<FusedQueryResult, "intent" | "confidence" | "reasoning">
 
 /**
  * Fused router that combines:
@@ -100,5 +101,4 @@ Only populate fields that are clearly implied by the query. Leave others undefin
 
   return object
 }
-
 
