@@ -15,16 +15,16 @@ const createPrismaClient = () => {
   const databaseUrl = process.env.DATABASE_URL || ""
   const isAccelerateUrl = databaseUrl.startsWith("prisma://") || databaseUrl.startsWith("prisma+postgres://")
   
-  const baseClient = isAccelerateUrl 
-    ? new PrismaClient().$extends(withAccelerate())
-    : new PrismaClient()
+  // Always apply withAccelerate() to ensure consistent TypeScript types for cacheStrategy
+  // The extension is safe with regular database URLs - caching features are only active with Accelerate URLs
+  const baseClient = new PrismaClient().$extends(withAccelerate())
 
   const invalidateListings = async (tags: ReadonlyArray<string>) => {
     if (!isAccelerateUrl) return // Skip cache invalidation when not using Accelerate
     
     try {
-      // Type assertion is safe here because we've already checked isAccelerateUrl
-      const accelerateClient = baseClient as PrismaClient & { $accelerate: { invalidate: (args: { tags: string[] }) => Promise<void> } }
+      // Type assertion is safe here because we've applied withAccelerate() and checked isAccelerateUrl
+      const accelerateClient = baseClient as unknown as { $accelerate: { invalidate: (args: { tags: string[] }) => Promise<void> } }
       await accelerateClient.$accelerate.invalidate({ tags: [...tags] })
     } catch (error) {
       console.error("Failed to invalidate Accelerate cache", { tags, error })
