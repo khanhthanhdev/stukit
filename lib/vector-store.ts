@@ -4,19 +4,19 @@ import type { Schemas } from "@qdrant/js-client-rest"
 import { getSearchConfig } from "~/config/search"
 import { getCachedEmbedding } from "~/lib/embedding-cache"
 import { createLogger } from "~/lib/logger"
-import { generateGeminiEmbedding, GEMINI_EMBEDDING_MODEL } from "~/services/gemini"
+import { GEMINI_EMBEDDING_MODEL, generateGeminiEmbedding } from "~/services/gemini"
 import { prisma } from "~/services/prisma"
 import {
+  QDRANT_ALTERNATIVES_COLLECTION,
+  QDRANT_CATEGORIES_COLLECTION,
   QDRANT_DENSE_VECTOR_SIZE,
   QDRANT_HYBRID_COLLECTION,
   QDRANT_TOOLS_COLLECTION,
   QDRANT_TOOLS_VECTOR_SIZE,
-  QDRANT_ALTERNATIVES_COLLECTION,
-  QDRANT_CATEGORIES_COLLECTION,
-  ensureHybridCollection,
-  ensureToolsCollection,
   ensureAlternativesCollection,
   ensureCategoriesCollection,
+  ensureHybridCollection,
+  ensureToolsCollection,
   qdrantClient,
 } from "~/services/qdrant"
 
@@ -621,7 +621,11 @@ export const deleteAlternativeVector = async (alternativeId: string) => {
  */
 export const searchAlternativeVectors = async (
   query: string,
-  { limit = 10, offset = 0, scoreThreshold }: { limit?: number; offset?: number; scoreThreshold?: number } = {},
+  {
+    limit = 10,
+    offset = 0,
+    scoreThreshold,
+  }: { limit?: number; offset?: number; scoreThreshold?: number } = {},
 ): Promise<AlternativeVectorMatch[]> => {
   await ensureAlternativesCollection()
 
@@ -831,7 +835,11 @@ export const deleteCategoryVector = async (categoryId: string) => {
  */
 export const searchCategoryVectors = async (
   query: string,
-  { limit = 10, offset = 0, scoreThreshold }: { limit?: number; offset?: number; scoreThreshold?: number } = {},
+  {
+    limit = 10,
+    offset = 0,
+    scoreThreshold,
+  }: { limit?: number; offset?: number; scoreThreshold?: number } = {},
 ): Promise<CategoryVectorMatch[]> => {
   await ensureCategoriesCollection()
 

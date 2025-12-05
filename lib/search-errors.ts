@@ -48,8 +48,7 @@ export class SearchError extends Error {
   }
 }
 
-export const isSearchError = (error: unknown): error is SearchError =>
-  error instanceof SearchError
+export const isSearchError = (error: unknown): error is SearchError => error instanceof SearchError
 
 export const toSearchErrorInfo = (
   error: unknown,
@@ -66,7 +65,7 @@ export const toSearchErrorInfo = (
   }
 
   const message = error instanceof Error ? error.message : "Unknown search error"
-  const cause = error instanceof Error ? error.stack ?? error.message : undefined
+  const cause = error instanceof Error ? (error.stack ?? error.message) : undefined
 
   return {
     code: fallbackCode,

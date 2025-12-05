@@ -18,7 +18,7 @@ export const createCollection = authedProcedure
         slug: input.slug || slugify(input.name),
 
         // Relations
-        tools: { connect: tools?.map((id: string)=> ({ id })) },
+        tools: { connect: tools?.map((id: string) => ({ id })) },
       },
     })
 

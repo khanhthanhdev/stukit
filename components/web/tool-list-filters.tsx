@@ -8,7 +8,7 @@ import { Input } from "~/components/web/ui/input"
 import { Select } from "~/components/web/ui/select"
 import { useDebounce } from "~/hooks/use-debounce"
 import type { CategoryMany } from "~/server/categories/payloads"
-import { searchParams, type SearchMode, resolveSearchMode } from "~/server/tools/search-params"
+import { type SearchMode, resolveSearchMode, searchParams } from "~/server/tools/search-params"
 
 export type ToolListFiltersProps = {
   categories?: CategoryMany[]

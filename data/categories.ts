@@ -69,6 +69,7 @@ export const categories: CategoryData[] = [
     name: "Language & Translation",
     slug: "language-translation",
     label: "Language & Translation",
-    description: "AI tools for real-time language translation, text-to-speech, and language learning",
+    description:
+      "AI tools for real-time language translation, text-to-speech, and language learning",
   },
 ]

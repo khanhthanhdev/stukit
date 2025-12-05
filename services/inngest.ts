@@ -13,6 +13,8 @@ type Events = {
   "tool.deleted": { data: ToolEventData }
 }
 
+const formatDurationMs = (start: number) => Number((performance.now() - start).toFixed(2))
+
 export const inngest = new Inngest({
   id: config.site.name,
   schemas: new EventSchemas().fromRecord<Events>(),
@@ -31,22 +33,22 @@ export const sendInngestEvent = async <T extends keyof Events>(event: {
     // Cast is safe because Events is exactly the schema used to configure Inngest
     const result = await inngest.send(event as any)
 
-    const duration = performance.now() - startTime
+    const duration = formatDurationMs(startTime)
     inngestLogger.info(`Event sent successfully: ${event.name}`, {
       event: event.name,
       toolId: event.data.id,
       toolSlug: event.data.slug,
-      durationMs: duration.toFixed(2),
+      durationMs: duration,
     })
 
     return result
   } catch (error) {
-    const duration = performance.now() - startTime
+    const duration = formatDurationMs(startTime)
     inngestLogger.error(`Failed to send event: ${event.name}`, {
       event: event.name,
       toolId: event.data.id,
       toolSlug: event.data.slug,
-      durationMs: duration.toFixed(2),
+      durationMs: duration,
       error: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
     })

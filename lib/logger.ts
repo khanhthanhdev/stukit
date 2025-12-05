@@ -19,6 +19,9 @@ const COLORS = {
 
 const currentLevel: LogLevel = isDev ? "debug" : "info"
 
+const formatDurationMs = (durationMs?: number) =>
+  durationMs === undefined ? undefined : Number(durationMs.toFixed(2))
+
 function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]
 }
@@ -73,11 +76,11 @@ export function createLogger(context: string) {
 
       try {
         const result = await fn()
-        const duration = (performance.now() - start).toFixed(2)
+        const duration = formatDurationMs(performance.now() - start)
         log("info", context, `${label} completed`, { durationMs: duration })
         return result
       } catch (error) {
-        const duration = (performance.now() - start).toFixed(2)
+        const duration = formatDurationMs(performance.now() - start)
         log("error", context, `${label} failed`, { durationMs: duration, error })
         throw error
       }
@@ -134,7 +137,7 @@ export const inngestLogger = {
       event: eventName,
       toolId: data.id,
       toolSlug: data.slug,
-      durationMs: durationMs.toFixed(2),
+      durationMs: formatDurationMs(durationMs),
     })
   },
 
@@ -156,7 +159,7 @@ export const inngestLogger = {
     }
 
     if (durationMs !== undefined) {
-      errorData.durationMs = durationMs.toFixed(2)
+      errorData.durationMs = formatDurationMs(durationMs)
     }
 
     logger.inngest.error(`Function failed: ${functionId}`, errorData)
@@ -172,17 +175,12 @@ export const inngestLogger = {
   },
 
   // Log step completion
-  stepCompleted: (
-    stepName: string,
-    functionId: string,
-    toolSlug?: string,
-    durationMs?: number,
-  ) => {
+  stepCompleted: (stepName: string, functionId: string, toolSlug?: string, durationMs?: number) => {
     logger.inngest.info(`Step completed: ${stepName}`, {
       step: stepName,
       functionId,
       toolSlug,
-      ...(durationMs !== undefined && { durationMs: durationMs.toFixed(2) }),
+      ...(durationMs !== undefined && { durationMs: formatDurationMs(durationMs) }),
     })
   },
 

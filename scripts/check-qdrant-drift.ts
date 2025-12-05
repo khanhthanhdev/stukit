@@ -1,15 +1,16 @@
 #!/usr/bin/env bun
 /**
  * Script to detect drift between Prisma database and Qdrant collections
- * 
+ *
  * Checks:
  * - Alternatives: Tools in Prisma vs vectors in Qdrant
  * - Categories: Categories in Prisma vs vectors in Qdrant
- * 
+ *
  * Usage:
  *   bun run scripts/check-qdrant-drift.ts
  */
 
+import crypto from "node:crypto"
 import { prisma } from "~/services/prisma"
 import {
   QDRANT_ALTERNATIVES_COLLECTION,
@@ -18,7 +19,6 @@ import {
   ensureCategoriesCollection,
   qdrantClient,
 } from "~/services/qdrant"
-import crypto from "node:crypto"
 
 // Convert string ID to a valid UUID for Qdrant
 const toUUID = (id: string): string => {
@@ -108,7 +108,8 @@ async function checkCategoriesDrift(): Promise<DriftReport> {
   const missingInQdrant = categories.filter(c => !qdrantIds.has(c.id)).map(c => c.slug)
   const extraInQdrant = Array.from(qdrantIds).filter(id => !prismaIds.has(id))
 
-  const driftPercentage = ((missingInQdrant.length + extraInQdrant.length) / categories.length) * 100
+  const driftPercentage =
+    ((missingInQdrant.length + extraInQdrant.length) / categories.length) * 100
 
   return {
     collection: "categories",
@@ -188,4 +189,3 @@ async function main() {
 }
 
 main()
-

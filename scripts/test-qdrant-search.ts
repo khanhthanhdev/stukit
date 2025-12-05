@@ -1,33 +1,33 @@
 #!/usr/bin/env bun
 /**
  * Comprehensive test script for Qdrant search features
- * 
+ *
  * Tests:
  * - Alternatives indexing and search
  * - Categories indexing and search
  * - Related tools recommendations
  * - Search performance and fallback behavior
  * - Admin search with all entity types
- * 
+ *
  * Usage:
  *   bun run scripts/test-qdrant-search.ts
  */
 
-import { prisma } from "~/services/prisma"
+import { findRelatedTools, findRelatedToolsBySlug } from "~/lib/related-tools"
 import {
-  searchAlternativeVectors,
-  searchCategoryVectors,
-  upsertAlternativeVector,
-  upsertCategoryVector,
+  type AlternativeVectorMatch,
+  type CategoryVectorMatch,
+  type ReindexProgress,
   deleteAlternativeVector,
   deleteCategoryVector,
   reindexAllAlternatives,
   reindexAllCategories,
-  type AlternativeVectorMatch,
-  type CategoryVectorMatch,
-  type ReindexProgress,
+  searchAlternativeVectors,
+  searchCategoryVectors,
+  upsertAlternativeVector,
+  upsertCategoryVector,
 } from "~/lib/vector-store"
-import { findRelatedTools, findRelatedToolsBySlug } from "~/lib/related-tools"
+import { prisma } from "~/services/prisma"
 import {
   QDRANT_ALTERNATIVES_COLLECTION,
   QDRANT_CATEGORIES_COLLECTION,
@@ -59,7 +59,7 @@ function logTest(name: string, passed: boolean, error?: string, details?: unknow
 
 async function testAlternativesIndexing() {
   console.log("\n📦 Testing Alternatives Indexing...")
-  
+
   try {
     // Get a sample alternative (tools that could be alternatives)
     const sampleTool = await prisma.tool.findFirst({
@@ -292,7 +292,11 @@ async function testRelatedToolsRecommendations() {
       relatedCount: relatedAll.length,
     })
   } catch (error) {
-    logTest("Related tools recommendations", false, error instanceof Error ? error.message : String(error))
+    logTest(
+      "Related tools recommendations",
+      false,
+      error instanceof Error ? error.message : String(error),
+    )
   }
 }
 
@@ -511,7 +515,7 @@ async function testVectorDeletion() {
 
 async function main() {
   console.log("🧪 Qdrant Search Features Test Suite")
-  console.log("=" .repeat(50))
+  console.log("=".repeat(50))
 
   try {
     // Ensure collections exist
@@ -546,12 +550,14 @@ async function main() {
 
     if (failed > 0) {
       console.log("\n❌ Failed tests:")
-      results.filter(r => !r.passed).forEach(r => {
-        console.log(`   - ${r.name}`)
-        if (r.error) {
-          console.log(`     Error: ${r.error}`)
-        }
-      })
+      results
+        .filter(r => !r.passed)
+        .forEach(r => {
+          console.log(`   - ${r.name}`)
+          if (r.error) {
+            console.log(`     Error: ${r.error}`)
+          }
+        })
       process.exit(1)
     } else {
       console.log("\n✅ All tests passed!")
@@ -564,4 +570,3 @@ async function main() {
 }
 
 main()
-

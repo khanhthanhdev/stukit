@@ -40,7 +40,7 @@ const generateUniqueSlug = async (baseName: string): Promise<string> => {
 /**
  * Submit a single tool (same logic as submitTool action)
  */
-const submitTool = async (toolData: typeof aiStudyTools[0]) => {
+const submitTool = async (toolData: (typeof aiStudyTools)[0]) => {
   // Validate that the link is reachable
   if (!SKIP_VALIDATION) {
     const linkValidation = await validateLink(toolData.websiteUrl)

@@ -2,7 +2,7 @@
 
 import { type Values, useQueryStates } from "nuqs"
 import { type PropsWithChildren, createContext, use, useTransition } from "react"
-import { searchParams, type SearchMode } from "~/server/tools/search-params"
+import { type SearchMode, searchParams } from "~/server/tools/search-params"
 
 export type FiltersContextType = {
   filters: Values<typeof searchParams>
@@ -70,4 +70,3 @@ export const useFilters = () => {
 
   return context
 }
-

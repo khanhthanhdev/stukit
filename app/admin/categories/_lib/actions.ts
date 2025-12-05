@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { categorySchema } from "~/app/admin/categories/_lib/validations"
 import { authedProcedure } from "~/lib/safe-actions"
-import { upsertCategoryVector, deleteCategoryVector } from "~/lib/vector-store"
+import { deleteCategoryVector, upsertCategoryVector } from "~/lib/vector-store"
 import { prisma } from "~/services/prisma"
 
 export const createCategory = authedProcedure

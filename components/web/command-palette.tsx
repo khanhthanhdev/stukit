@@ -16,8 +16,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import type { inferServerActionReturnData } from "zsa"
 import { useServerAction } from "zsa-react"
 import { searchPaletteItems } from "~/actions/search"
-import { useCommandPalette } from "~/contexts/command-palette-context"
-import { useDebouncedState } from "~/hooks/use-debounced-state"
 import {
   CommandDialog,
   CommandEmpty,
@@ -30,6 +28,8 @@ import {
 } from "~/components/web/ui/command"
 import { Favicon } from "~/components/web/ui/favicon"
 import { Shortcut } from "~/components/web/ui/shortcut"
+import { useCommandPalette } from "~/contexts/command-palette-context"
+import { useDebouncedState } from "~/hooks/use-debounced-state"
 
 type PaletteResults = inferServerActionReturnData<typeof searchPaletteItems>
 
@@ -172,8 +172,7 @@ export const CommandPalette = () => {
 
         <div className="absolute inset-y-0 right-3 flex items-center gap-2 text-muted-foreground">
           {isPending && <LoaderIcon className="size-4 animate-spin" aria-label="Searching" />}
-          <Shortcut size="h6" className="text-xs text-muted-foreground/80">
-          </Shortcut>
+          <Shortcut size="h6" className="text-xs text-muted-foreground/80"></Shortcut>
         </div>
       </div>
 

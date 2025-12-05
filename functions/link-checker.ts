@@ -22,7 +22,7 @@ export const linkChecker = inngest.createFunction(
         try {
           const result = await prisma.tool.findMany({
             where: { publishedAt: { lte: new Date() } },
-            select: { id: true, websiteUrl: true, isBroken: true },
+            select: { id: true, slug: true, websiteUrl: true, isBroken: true },
           })
           const duration = performance.now() - stepStartTime
           inngestLogger.stepCompleted("fetch-published-tools", FUNCTION_ID, undefined, duration)
@@ -52,6 +52,7 @@ export const linkChecker = inngest.createFunction(
 
       let brokenCount = 0
       let fixedCount = 0
+      const failedTools: { id: string; slug: string; url: string }[] = []
 
       for (const [index, batch] of batches.entries()) {
         const results = await step.run(`check-batch-${index}`, async () => {
@@ -64,6 +65,8 @@ export const linkChecker = inngest.createFunction(
                 const result = await validateLink(tool.websiteUrl)
                 return {
                   id: tool.id,
+                  slug: tool.slug,
+                  url: tool.websiteUrl,
                   wasBroken: tool.isBroken,
                   isNowBroken: !result.isValid,
                 }
@@ -71,7 +74,12 @@ export const linkChecker = inngest.createFunction(
             )
 
             const duration = performance.now() - stepStartTime
-            inngestLogger.batchProcessed(index, batch.length, (index + 1) * batch.length, FUNCTION_ID)
+            inngestLogger.batchProcessed(
+              index,
+              batch.length,
+              (index + 1) * batch.length,
+              FUNCTION_ID,
+            )
             inngestLogger.stepCompleted(`check-batch-${index}`, FUNCTION_ID, undefined, duration)
             return checks
           } catch (error) {
@@ -90,6 +98,9 @@ export const linkChecker = inngest.createFunction(
                 fixedCount++
               } else if (!result.wasBroken && result.isNowBroken) {
                 brokenCount++
+                failedTools.push({ id: result.id, slug: result.slug, url: result.url })
+              } else if (result.isNowBroken) {
+                failedTools.push({ id: result.id, slug: result.slug, url: result.url })
               }
 
               return prisma.tool.update({
@@ -131,6 +142,14 @@ export const linkChecker = inngest.createFunction(
         totalChecked: tools.length,
         newlyBroken: brokenCount,
         fixed: fixedCount,
+        failedTools,
+      }
+
+      if (failedTools.length) {
+        inngestLogger.warn("Link checker found broken links", {
+          functionId: FUNCTION_ID,
+          failedTools,
+        })
       }
 
       inngestLogger.info("Link checker completed", {

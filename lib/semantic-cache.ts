@@ -1,13 +1,13 @@
 import crypto from "node:crypto"
 import { createLogger } from "~/lib/logger"
 import type { ToolVectorMatch } from "~/lib/vector-store"
+import { generateGeminiEmbedding } from "~/services/gemini"
 import {
   QDRANT_DENSE_VECTOR_SIZE,
   QDRANT_SEMANTIC_CACHE_COLLECTION,
   ensureSemanticCacheCollection,
   qdrantClient,
 } from "~/services/qdrant"
-import { generateGeminiEmbedding } from "~/services/gemini"
 
 const log = createLogger("semantic-cache")
 
@@ -101,5 +101,3 @@ export const storeCachedAnswer = async (params: {
     log.error("Failed to cache answer in semantic cache", { error })
   }
 }
-
-

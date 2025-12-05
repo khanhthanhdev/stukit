@@ -261,120 +261,118 @@ export const aiStudyTools: ToolSubmission[] = [
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Gamma",
     websiteUrl: "https://gamma.app/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "SlidesAI",
     websiteUrl: "https://slidesai.io/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Mymind",
     websiteUrl: "https://mymind.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Perplexity",
     websiteUrl: "https://www.perplexity.ai/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Explainpaper",
     websiteUrl: "https://www.explainpaper.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Looria",
     websiteUrl: "https://looria.com/ai-study-tools",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "NoteGPT",
     websiteUrl: "https://notegpt.io/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Upword",
     websiteUrl: "https://www.upword.ai/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Mindgrasp",
     websiteUrl: "https://mindgrasp.ai/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Quizgecko",
     websiteUrl: "https://quizgecko.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Scite",
     websiteUrl: "https://scite.ai/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Jenni AI",
     websiteUrl: "https://jenni.ai/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Elicit",
     websiteUrl: "https://elicit.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Scholarcy",
     websiteUrl: "https://www.scholarcy.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Otter.ai",
     websiteUrl: "https://otter.ai/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "QuillBot",
     websiteUrl: "https://quillbot.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "Rephrasee",
     websiteUrl: "https://rephrasee.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "CramAI",
     websiteUrl: "https://cramai.com/",
     submitterName: "System",
     submitterEmail: "system@stukit.com",
   },
-{
+  {
     name: "MagicSchool AI",
     websiteUrl: "https://www.magicschool.ai/",
     submitterName: "System",
-    submitterEmail: "system@stukit.com"
-}
-
+    submitterEmail: "system@stukit.com",
+  },
 ]
-

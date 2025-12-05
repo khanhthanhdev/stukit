@@ -7,10 +7,10 @@ import { runWithEmbeddingCache } from "~/lib/embedding-cache"
 import { authedProcedure } from "~/lib/safe-actions"
 import { CircuitBreaker } from "~/lib/search-strategy"
 import {
-  hybridSearchToolVectors,
-  searchCategoryVectors,
   type CategoryVectorMatch,
   type ToolVectorMatch,
+  hybridSearchToolVectors,
+  searchCategoryVectors,
 } from "~/lib/vector-store"
 import { prisma } from "~/services/prisma"
 

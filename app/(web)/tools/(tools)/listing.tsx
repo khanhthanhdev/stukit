@@ -3,8 +3,8 @@ import type { SearchParams } from "nuqs/server"
 import type { ComponentProps } from "react"
 import { ToolList } from "~/components/web/tool-list"
 import { findCategories } from "~/server/categories/queries"
-import { searchTools } from "~/server/tools/queries"
 import type { ToolMany } from "~/server/tools/payloads"
+import { searchTools } from "~/server/tools/queries"
 
 type ToolsListingProps = Omit<
   ComponentProps<typeof ToolList>,

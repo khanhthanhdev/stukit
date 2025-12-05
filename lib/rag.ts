@@ -1,15 +1,11 @@
 import { generateText } from "ai"
 import { env } from "~/env"
-import { fusedRouteQuery, type QueryIntent } from "~/lib/fused-query-router"
-import type { ToolVectorMatch } from "~/lib/vector-store"
-import {
-  hybridSearchToolVectors,
-  searchToolsByName,
-  searchToolVectors,
-} from "~/lib/vector-store"
-import { findCachedAnswer, storeCachedAnswer } from "~/lib/semantic-cache"
-import { geminiFlashModel } from "~/services/gemini"
+import { type QueryIntent, fusedRouteQuery } from "~/lib/fused-query-router"
 import { createLogger } from "~/lib/logger"
+import { findCachedAnswer, storeCachedAnswer } from "~/lib/semantic-cache"
+import type { ToolVectorMatch } from "~/lib/vector-store"
+import { hybridSearchToolVectors, searchToolVectors, searchToolsByName } from "~/lib/vector-store"
+import { geminiFlashModel } from "~/services/gemini"
 
 const log = createLogger("rag")
 
@@ -156,9 +152,7 @@ export const retrieveToolContextWithRouting = async (
 
         if (missingTools.length > 0) {
           const fallbackResults = await Promise.all(
-            missingTools.map(toolName =>
-              hybridSearchToolVectors(toolName, { limit: 1, category }),
-            ),
+            missingTools.map(toolName => hybridSearchToolVectors(toolName, { limit: 1, category })),
           )
 
           for (const results of fallbackResults) {

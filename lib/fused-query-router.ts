@@ -9,18 +9,11 @@ export const FusedQueryResultSchema = z.object({
   intent: z
     .enum(["recommendation", "comparison", "search"])
     .describe("The classified intent of the user query"),
-  confidence: z
-    .number()
-    .min(0)
-    .max(1)
-    .describe("Confidence score for the classification"),
+  confidence: z.number().min(0).max(1).describe("Confidence score for the classification"),
   reasoning: z.string().describe("Brief explanation of why this intent was chosen"),
 
   // Comparison-specific fields
-  toolNames: z
-    .array(z.string())
-    .optional()
-    .describe("Exact names of tools being compared, if any"),
+  toolNames: z.array(z.string()).optional().describe("Exact names of tools being compared, if any"),
   comparisonAspects: z
     .array(z.string())
     .optional()
@@ -37,18 +30,9 @@ export const FusedQueryResultSchema = z.object({
     .string()
     .optional()
     .describe("Specific tool name if the user is searching for one tool"),
-  categories: z
-    .array(z.string())
-    .optional()
-    .describe("Category filters to apply, if mentioned"),
-  features: z
-    .array(z.string())
-    .optional()
-    .describe("Specific features requested by the user"),
-  pricing: z
-    .string()
-    .optional()
-    .describe("Pricing preference (free, paid, freemium)"),
+  categories: z.array(z.string()).optional().describe("Category filters to apply, if mentioned"),
+  features: z.array(z.string()).optional().describe("Specific features requested by the user"),
+  pricing: z.string().optional().describe("Pricing preference (free, paid, freemium)"),
 })
 
 export type FusedQueryResult = z.infer<typeof FusedQueryResultSchema>
@@ -101,4 +85,3 @@ Only populate fields that are clearly implied by the query. Leave others undefin
 
   return object
 }
-

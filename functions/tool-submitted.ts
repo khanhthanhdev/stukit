@@ -1,9 +1,9 @@
 import EmailSubmission from "~/emails/submission"
 import { sendEmails } from "~/lib/email"
 import { generateContent } from "~/lib/generate-content"
-import { uploadFavicon, uploadScreenshot } from "~/lib/media"
 import { inngestLogger } from "~/lib/logger"
-import { upsertToolVector, upsertAlternativeVector } from "~/lib/vector-store"
+import { uploadFavicon, uploadScreenshot } from "~/lib/media"
+import { upsertAlternativeVector, upsertToolVector } from "~/lib/vector-store"
 import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
 
@@ -74,10 +74,7 @@ export const toolSubmitted = inngest.createFunction(
 
           try {
             const { id, slug, websiteUrl } = tool
-            const screenshotUrl = await uploadScreenshot(
-              websiteUrl,
-              `tools/${slug}/screenshot`,
-            )
+            const screenshotUrl = await uploadScreenshot(websiteUrl, `tools/${slug}/screenshot`)
 
             const result = await prisma.tool.update({
               where: { id },
@@ -221,12 +218,7 @@ export const toolSubmitted = inngest.createFunction(
             })
 
             const duration = performance.now() - stepStartTime
-            inngestLogger.stepCompleted(
-              "send-submission-email",
-              FUNCTION_ID,
-              toolSlug,
-              duration,
-            )
+            inngestLogger.stepCompleted("send-submission-email", FUNCTION_ID, toolSlug, duration)
             return result
           } catch (error) {
             inngestLogger.stepError("send-submission-email", FUNCTION_ID, toolSlug, error)

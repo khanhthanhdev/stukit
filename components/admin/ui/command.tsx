@@ -33,7 +33,10 @@ const CommandDialog = ({ children, shouldFilter = true, ...props }: CommandDialo
       <DialogContent className="overflow-hidden !p-0 max-w-sm rounded-md">
         <DialogTitle className="sr-only">Command Menu</DialogTitle>
 
-        <Command shouldFilter={shouldFilter} className="[&_[cmdk-group]]:p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground/75 [&_[cmdk-input]]:h-12">
+        <Command
+          shouldFilter={shouldFilter}
+          className="[&_[cmdk-group]]:p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground/75 [&_[cmdk-input]]:h-12"
+        >
           {children}
         </Command>
       </DialogContent>

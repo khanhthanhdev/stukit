@@ -7,23 +7,23 @@
  *   bun run scripts/setup-qdrant.ts --force  # Recreate collection even if exists
  */
 
-import { prisma } from "~/services/prisma"
 import {
-  QDRANT_HYBRID_COLLECTION,
-  QDRANT_DENSE_VECTOR_SIZE,
-  QDRANT_SEMANTIC_CACHE_COLLECTION,
-  QDRANT_ALTERNATIVES_COLLECTION,
-  QDRANT_CATEGORIES_COLLECTION,
-  ensureSemanticCacheCollection,
-  ensureAlternativesCollection,
-  ensureCategoriesCollection,
-  qdrantClient,
-} from "~/services/qdrant"
-import {
-  reindexAllHybridTools,
   reindexAllAlternatives,
   reindexAllCategories,
+  reindexAllHybridTools,
 } from "~/lib/vector-store"
+import { prisma } from "~/services/prisma"
+import {
+  QDRANT_ALTERNATIVES_COLLECTION,
+  QDRANT_CATEGORIES_COLLECTION,
+  QDRANT_DENSE_VECTOR_SIZE,
+  QDRANT_HYBRID_COLLECTION,
+  QDRANT_SEMANTIC_CACHE_COLLECTION,
+  ensureAlternativesCollection,
+  ensureCategoriesCollection,
+  ensureSemanticCacheCollection,
+  qdrantClient,
+} from "~/services/qdrant"
 
 const FORCE_RECREATE = process.argv.includes("--force")
 
@@ -138,7 +138,9 @@ async function main() {
 
   if (result.failed.length > 0) {
     console.log(`   ❌ Failed: ${result.failed.length}`)
-    console.log(`      Failed tools: ${result.failed.slice(0, 5).join(", ")}${result.failed.length > 5 ? "..." : ""}`)
+    console.log(
+      `      Failed tools: ${result.failed.slice(0, 5).join(", ")}${result.failed.length > 5 ? "..." : ""}`,
+    )
   }
 
   // Verify final tools state
@@ -157,16 +159,16 @@ async function main() {
     if (now - alternativesLastProgressUpdate > 500 || progress.processed === progress.total) {
       const percent = Math.round((progress.processed / progress.total) * 100)
       const bar = "█".repeat(Math.floor(percent / 2)) + "░".repeat(50 - Math.floor(percent / 2))
-      process.stdout.write(
-        `\r   [${bar}] ${percent}% (${progress.processed}/${progress.total})`,
-      )
+      process.stdout.write(`\r   [${bar}] ${percent}% (${progress.processed}/${progress.total})`)
       alternativesLastProgressUpdate = now
     }
   })
 
   const alternativesDuration = ((Date.now() - alternativesStartTime) / 1000).toFixed(1)
   console.log("\n")
-  console.log(`   ✅ Alternatives indexed: ${alternativesResult.processed}/${alternativesResult.total}`)
+  console.log(
+    `   ✅ Alternatives indexed: ${alternativesResult.processed}/${alternativesResult.total}`,
+  )
   console.log(`   ⏱️  Duration: ${alternativesDuration}s`)
 
   if (alternativesResult.failed.length > 0) {
@@ -183,9 +185,7 @@ async function main() {
     if (now - categoriesLastProgressUpdate > 500 || progress.processed === progress.total) {
       const percent = Math.round((progress.processed / progress.total) * 100)
       const bar = "█".repeat(Math.floor(percent / 2)) + "░".repeat(50 - Math.floor(percent / 2))
-      process.stdout.write(
-        `\r   [${bar}] ${percent}% (${progress.processed}/${progress.total})`,
-      )
+      process.stdout.write(`\r   [${bar}] ${percent}% (${progress.processed}/${progress.total})`)
       categoriesLastProgressUpdate = now
     }
   })

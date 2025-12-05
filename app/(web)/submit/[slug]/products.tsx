@@ -23,9 +23,7 @@ export const SubmitProducts = async ({ tool }: SubmitProductsProps) => {
 
   return (
     <Card hover={false} className="max-w-2xl gap-4 text-left">
-      <Badge className="w-fit">
-        Queue status
-      </Badge>
+      <Badge className="w-fit">Queue status</Badge>
 
       <Stack direction="column" size="sm" className="text-base text-pretty text-foreground/75">
         <H5 as="p" className="text-base font-semibold">
@@ -33,8 +31,8 @@ export const SubmitProducts = async ({ tool }: SubmitProductsProps) => {
         </H5>
         <p>{intro}</p>
         <p className="text-sm text-foreground/60">
-          We manually publish about {metrics.postingRate} tools per week through an admin review flow
-          that runs on a scheduled cron job.
+          We manually publish about {metrics.postingRate} tools per week through an admin review
+          flow that runs on a scheduled cron job.
         </p>
       </Stack>
 

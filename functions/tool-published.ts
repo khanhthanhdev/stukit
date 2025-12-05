@@ -1,3 +1,6 @@
+import { config } from "~/config"
+import EmailToolPublished from "~/emails/tool-published"
+import { sendEmails } from "~/lib/email"
 import { inngestLogger } from "~/lib/logger"
 import { inngest } from "~/services/inngest"
 import { prisma } from "~/services/prisma"
@@ -31,12 +34,40 @@ export const toolPublished = inngest.createFunction(
         }
       })
 
-      // TODO: send email to the submitter
-      inngestLogger.info("Tool published - email notification not yet implemented", {
-        functionId: FUNCTION_ID,
-        toolSlug,
-        toolId: tool.id,
-      })
+      const shouldSendPublishEmail = config.submissions.sendPublishEmail && !!tool.submitterEmail
+
+      if (!shouldSendPublishEmail) {
+        inngestLogger.info("Skipping publish email", {
+          functionId: FUNCTION_ID,
+          toolSlug,
+          toolId: tool.id,
+          hasSubmitterEmail: !!tool.submitterEmail,
+          sendPublishEmail: config.submissions.sendPublishEmail,
+        })
+      } else {
+        await step.run("send-publish-email", async () => {
+          const stepStartTime = performance.now()
+          inngestLogger.stepStarted("send-publish-email", FUNCTION_ID, toolSlug)
+
+          try {
+            const to = tool.submitterEmail as string
+            const subject = `Your tool ${tool.name} is live on ${config.site.name}`
+
+            const result = await sendEmails({
+              to,
+              subject,
+              react: EmailToolPublished({ tool, to, subject }),
+            })
+
+            const duration = performance.now() - stepStartTime
+            inngestLogger.stepCompleted("send-publish-email", FUNCTION_ID, toolSlug, duration)
+            return result
+          } catch (error) {
+            inngestLogger.stepError("send-publish-email", FUNCTION_ID, toolSlug, error)
+            throw error
+          }
+        })
+      }
 
       const duration = performance.now() - functionStartTime
       inngestLogger.functionCompleted(FUNCTION_ID, "tool.published", event.data, duration)

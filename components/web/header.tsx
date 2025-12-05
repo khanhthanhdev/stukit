@@ -10,8 +10,8 @@ import { Button } from "~/components/web/ui/button"
 import { Container } from "~/components/web/ui/container"
 import { NavigationLink } from "~/components/web/ui/navigation-link"
 import { Shortcut } from "~/components/web/ui/shortcut"
-import { cx } from "~/utils/cva"
 import { useCommandPalette } from "~/contexts/command-palette-context"
+import { cx } from "~/utils/cva"
 
 export const Header = ({ className, ...props }: HTMLAttributes<HTMLElement>) => {
   const pathname = usePathname()

@@ -66,27 +66,14 @@
 
   /* CSS */
   .font-sans {
-    font-feature-settings:
-      "ss01" on,
-      "ss02" off,
-      "ss03" off,
-      "ss04" off,
-      "ss05" off,
-      "ss06" off,
-      "ss07" off,
-      "ss08" on;
+    font-feature-settings: "ss01" on, "ss02" off, "ss03" off, "ss04" off, "ss05" off, "ss06" off,
+      "ss07" off, "ss08" on;
   }
 
   .font-display {
-    font-feature-settings:
-      "ss01" on, /* Alternate R */
-      "ss02" on, /* Alternate Y and y */
-      "ss03" on, /* Alernative Q, Ø, and ø */
-      "ss04" off, /* Alernative a */
-      "ss05" on, /* Alernative 1, 2, and 4 */
-      "ss06" on, /* Alternate !, ?, and * */
-      "ss07" on, /* Round punctuation */
-      "ss08" off; /* Alternate arrows */
+    font-feature-settings: "ss01" on, /* Alternate R */ "ss02" on, /* Alternate Y and y */ "ss03" on, /* Alernative Q, Ø, and ø */
+      "ss04" off, /* Alernative a */ "ss05" on, /* Alernative 1, 2, and 4 */ "ss06" on, /* Alternate !, ?, and * */
+      "ss07" on, /* Round punctuation */ "ss08" off; /* Alternate arrows */
   }
 
   * {
@@ -112,29 +99,28 @@
   strong {
     @apply font-medium;
   }
-  
+
   select:not([size]) {
     @apply bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNmZmYnIHN0cm9rZS13aWR0aD0nMicgc3Ryb2tlLWxpbmVjYXA9J3JvdW5kJyBzdHJva2UtbGluZWpvaW49J3JvdW5kJyBjbGFzcz0nbHVjaWRlIGx1Y2lkZS1jaGV2cm9uLWRvd24nPjxwYXRoIGQ9J202IDkgNiA2IDYtNicvPjwvc3ZnPg==')];
     @apply bg-no-repeat;
     @apply bg-[right_0.75rem_center];
     @apply bg-[length:1.25em_1.25em];
     @apply pr-10;
-  
   }
 
   /* Chrome, Safari, Edge, Opera */
-  input[type='search']::-webkit-search-cancel-button {
+  input[type="search"]::-webkit-search-cancel-button {
     -webkit-appearance: none;
     appearance: none;
   }
 
   /* Firefox */
-  input[type='search']::-moz-search-cancel-button {
+  input[type="search"]::-moz-search-cancel-button {
     display: none;
   }
 
   /* Microsoft Edge */
-  input[type='search']::-ms-clear {
+  input[type="search"]::-ms-clear {
     display: none;
   }
 }

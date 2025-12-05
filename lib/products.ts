@@ -8,8 +8,7 @@ export const getQueueMetrics = (queueLength: number) => {
 
   const weeks = safeQueueLength === 0 ? 0 : Math.ceil(safeQueueLength / postingRate)
   const days = weeks * 7
-  const months =
-    days > 0 ? differenceInMonths(addDays(new Date(), days), new Date()) : 0
+  const months = days > 0 ? differenceInMonths(addDays(new Date(), days), new Date()) : 0
 
   const eta =
     safeQueueLength === 0

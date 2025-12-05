@@ -1,28 +1,28 @@
 import type { Prisma } from "@prisma/client"
 import type { SearchParams } from "nuqs/server"
-import { getSearchConfig, type SearchConfig } from "~/config/search"
+import { type SearchConfig, getSearchConfig } from "~/config/search"
 import { auth } from "~/lib/auth"
 import { runWithEmbeddingCache } from "~/lib/embedding-cache"
-import {
-  CircuitBreaker,
-  SearchOrchestrator,
-  type SearchExecuteOptions,
-  type SearchStrategy,
-} from "~/lib/search-strategy"
 import { createLogger } from "~/lib/logger"
 import { SearchError, SearchErrorCode, toSearchErrorInfo } from "~/lib/search-errors"
 import {
-  normalizeSearchMode,
+  CircuitBreaker,
+  type SearchExecuteOptions,
+  SearchOrchestrator,
+  type SearchStrategy,
+} from "~/lib/search-strategy"
+import {
   type SearchMode,
   type SearchResult,
   type SearchResultMetadata,
+  normalizeSearchMode,
 } from "~/lib/search/types"
 import {
-  type ToolVectorMatch,
   type AlternativeVectorMatch,
-  searchToolVectors,
+  type ToolVectorMatch,
   hybridSearchToolVectors,
   searchAlternativeVectors,
+  searchToolVectors,
 } from "~/lib/vector-store"
 import { toolManyPayload, toolOnePayload } from "~/server/tools/payloads"
 import { searchParamsCache } from "~/server/tools/search-params"
@@ -352,8 +352,7 @@ const runToolSearch = async (
   const searchMode = normalizeSearchMode(parsedParams.mode)
   const query = parsedParams.q?.trim() ?? ""
   const metadata: Partial<SearchResultMetadata> = {
-    requestedMode:
-      requestedMode ?? (parsedParams.mode as SearchResultMetadata["requestedMode"]),
+    requestedMode: requestedMode ?? (parsedParams.mode as SearchResultMetadata["requestedMode"]),
   }
   const context = buildToolContext(parsedParams, prismaArgs)
 
@@ -399,11 +398,7 @@ export const searchToolsHybrid = (
   args: Prisma.ToolFindManyArgs = {},
 ): Promise<ToolSearchResult> =>
   runWithEmbeddingCache(() =>
-    runToolSearch(
-      { ...searchParamsCache.parse(searchParams), mode: "semantic" },
-      args,
-      "hybrid",
-    ),
+    runToolSearch({ ...searchParamsCache.parse(searchParams), mode: "semantic" }, args, "hybrid"),
   )
 
 /** @deprecated Use searchTools with mode="semantic" */

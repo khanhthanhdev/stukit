@@ -165,11 +165,18 @@ export class SearchOrchestrator<TItem, TMatch, TContext> {
       this.options.fallbackStrategy
 
     const breaker = this.options.circuitBreaker
-    const canAttemptSemantic = strategy !== this.options.fallbackStrategy ? breaker?.canAttempt() ?? true : true
+    const canAttemptSemantic =
+      strategy !== this.options.fallbackStrategy ? (breaker?.canAttempt() ?? true) : true
 
     if (!canAttemptSemantic) {
       this.log.warn("Circuit breaker open; skipping primary strategy", { mode })
-      return this.runFallback(query, { mode, context, metadata }, new SearchError(SearchErrorCode.QDRANT_UNAVAILABLE, "Circuit breaker open", { retryable: false }))
+      return this.runFallback(
+        query,
+        { mode, context, metadata },
+        new SearchError(SearchErrorCode.QDRANT_UNAVAILABLE, "Circuit breaker open", {
+          retryable: false,
+        }),
+      )
     }
 
     try {

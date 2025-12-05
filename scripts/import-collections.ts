@@ -195,7 +195,9 @@ async function main() {
         })
 
         console.log(`   Found ${allCollections.length} collections in database`)
-        console.log("   Note: Run 'bun run scripts/setup-qdrant.ts' to index collections for search")
+        console.log(
+          "   Note: Run 'bun run scripts/setup-qdrant.ts' to index collections for search",
+        )
       } catch (error) {
         console.error("   ❌ Error fetching collections:", error)
       }

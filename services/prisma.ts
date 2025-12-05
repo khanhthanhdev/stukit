@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client"
 import { AsyncLocalStorage } from "node:async_hooks"
+import { PrismaClient } from "@prisma/client"
 import { deleteToolVector, upsertToolVector } from "~/lib/vector-store"
 
 const vectorSyncStore = new AsyncLocalStorage<boolean>()

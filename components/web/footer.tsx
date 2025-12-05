@@ -94,8 +94,6 @@ export const Footer = ({ children, className, ...props }: HTMLAttributes<HTMLEle
           <NavigationLink href="/collections">Collections</NavigationLink>
           <NavigationLink href="/tags">Tags</NavigationLink>
         </Stack>
-
-        
       </div>
 
       <div className="flex flex-row flex-wrap items-end justify-between gap-x-4 gap-y-2 w-full">

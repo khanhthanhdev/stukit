@@ -1,11 +1,11 @@
 import crypto from "node:crypto"
 import type { Schemas } from "@qdrant/js-client-rest"
+import { getSearchConfig } from "~/config/search"
 import { createLogger } from "~/lib/logger"
 import type { ToolVectorMatch, ToolVectorPayload } from "~/lib/vector-store"
+import { type ToolMany, toolManyPayload } from "~/server/tools/payloads"
 import { prisma } from "~/services/prisma"
 import { QDRANT_HYBRID_COLLECTION, ensureHybridCollection, qdrantClient } from "~/services/qdrant"
-import { toolManyPayload, type ToolMany } from "~/server/tools/payloads"
-import { getSearchConfig } from "~/config/search"
 
 const log = createLogger("related-tools")
 
@@ -198,4 +198,3 @@ export const findRelatedToolsBatch = async (
 
   return results
 }
-

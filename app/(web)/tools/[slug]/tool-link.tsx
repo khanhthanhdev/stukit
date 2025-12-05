@@ -12,11 +12,7 @@ type ToolLinkProps = ComponentProps<typeof Button> & {
 
 export const ToolLink = ({ tool, ...props }: ToolLinkProps) => {
   return (
-    <Button
-      suffix={<ArrowUpRightIcon />}
-      asChild
-      {...props}
-    >
+    <Button suffix={<ArrowUpRightIcon />} asChild {...props}>
       <a
         href={tool.affiliateUrl || tool.websiteUrl}
         target="_blank"

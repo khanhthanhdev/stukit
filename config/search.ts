@@ -1,6 +1,6 @@
 /**
  * Centralized search configuration for Qdrant vector search
- * 
+ *
  * This module provides default search parameters that can be overridden
  * per-query when needed. Configuration values are environment-appropriate.
  */

@@ -1,10 +1,5 @@
-import {
-  createSearchParamsCache,
-  parseAsArrayOf,
-  parseAsInteger,
-  parseAsString,
-} from "nuqs/server"
-import { normalizeSearchMode, type SearchMode } from "~/lib/search/types"
+import { createSearchParamsCache, parseAsArrayOf, parseAsInteger, parseAsString } from "nuqs/server"
+import { type SearchMode, normalizeSearchMode } from "~/lib/search/types"
 
 export type { SearchMode }
 
