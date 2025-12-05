@@ -2,8 +2,7 @@ import { AtSignIcon, RssIcon } from "lucide-react"
 import Image from "next/image"
 import type { HTMLAttributes } from "react"
 import { H6 } from "~/components/common/heading"
-import { BrandGitHubIcon } from "~/components/common/icons/brand-github"
-import { BrandXIcon } from "~/components/common/icons/brand-x"
+import { Icon } from "~/components/common/icon"
 import { Logo } from "~/components/common/logo"
 import { Stack } from "~/components/common/stack"
 import { NavigationLink } from "~/components/web/ui/navigation-link"
@@ -60,7 +59,7 @@ export const Footer = ({ children, className, ...props }: HTMLAttributes<HTMLEle
                   rel="noopener noreferrer nofollow"
                   aria-label="Follow us on X/Twitter"
                 >
-                  <BrandXIcon className="size-[1.44em]" />
+                  <Icon name="brand-x" className="size-[1.44em]" aria-label="X icon" />
                 </NavigationLink>
               </Tooltip>
 
@@ -71,7 +70,7 @@ export const Footer = ({ children, className, ...props }: HTMLAttributes<HTMLEle
                   rel="noopener noreferrer nofollow"
                   aria-label="View source code"
                 >
-                  <BrandGitHubIcon className="size-[1.44em]" />
+                  <Icon name="brand-github" className="size-[1.44em]" aria-label="GitHub icon" />
                 </NavigationLink>
               </Tooltip>
             </TooltipProvider>

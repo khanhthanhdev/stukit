@@ -60,6 +60,7 @@ All commands are run from the root of the project, from a terminal:
 | `bun install`     | Installs dependencies
 | `bun run dev`     | Starts web app in development mode at `localhost:5175`
 | `bun run build`   | Build both apps for production
+| `bun run icons`   | Generate SVG sprite and icon manifest from `assets/icons`
 | `bun run start`   | Preview production build locally
 | `bun run lint`    | Run linter
 | `bun run format`  | Format code
