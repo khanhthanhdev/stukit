@@ -167,7 +167,7 @@ export function ToolForm({
             <FormItem className="col-span-full">
               <FormLabel>Tagline</FormLabel>
               <FormControl>
-                <Input placeholder="How developers build successful products" {...field} />
+                <Input placeholder="How Work & Studys build successful products" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -182,7 +182,7 @@ export function ToolForm({
               <FormLabel>Description</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Acme Analytics helps teams ship faster with unified analytics, feature flags, and experiments built for developers."
+                  placeholder="Acme Analytics helps teams ship faster with unified analytics, feature flags, and experiments built for Work & Studys."
                   {...field}
                 />
               </FormControl>

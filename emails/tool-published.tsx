@@ -25,7 +25,7 @@ const EmailToolPublished = ({ tool, ...props }: EmailToolPublishedProps) => {
 
       <Text>
         We'd love it if you could spread the word. A quick post on your favorite social platform or
-        dev community about {tool?.name} would mean a lot to us. It helps other developers discover
+        dev community about {tool?.name} would mean a lot to us. It helps other Work & Studys discover
         cool tools like yours!
       </Text>
 

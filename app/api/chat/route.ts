@@ -46,8 +46,8 @@ Categories: ${categories.join(", ") || "N/A"}`
           .join("\n\n")
       : "No specific tools found for this query."
 
-    const systemPrompt = `You are a helpful assistant for a developer tools directory website called AI Knowledge Cloud.
-Your role is to help users discover, understand, and compare developer tools.
+    const systemPrompt = `You are a helpful assistant for a Work & Study tools directory website called AI Knowledge Cloud.
+Your role is to help users discover, understand, and compare Work & Study tools.
 
 Available context from our tools database:
 ${formattedContext}

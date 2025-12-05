@@ -231,7 +231,7 @@ export const answerToolQuestion = async (
 
   if (!context.length) {
     return {
-      answer: "I couldn't find any relevant developer tools for that question yet.",
+      answer: "I couldn't find any relevant Work & Study tools for that question yet.",
       context: [],
     }
   }
@@ -246,7 +246,7 @@ export const answerToolQuestion = async (
   const { text } = await generateText({
     model: geminiFlashModel,
     temperature: options.temperature ?? 0.2,
-    system: `You are a research assistant that answers questions about developer tools.
+    system: `You are a research assistant that answers questions about Work & Study tools.
 Use the provided context snippets. Cite the tool slug inline whenever you reference it.
 If the context does not contain an answer, say you don't know.`,
     prompt: `Context:\n${formattedContext}\n\nQuestion: ${question}\nAnswer:`,
@@ -294,7 +294,7 @@ export const answerToolQuestionAdvanced = async (
 
   if (!context.length) {
     return {
-      answer: "I couldn't find any relevant developer tools for that question yet.",
+      answer: "I couldn't find any relevant Work & Study tools for that question yet.",
       context: [],
       intent,
     }
@@ -320,7 +320,7 @@ Details: ${content ?? "N/A"}`
   let systemPrompt: string
   switch (intent.intent) {
     case "comparison":
-      systemPrompt = `You are a research assistant comparing developer tools.
+      systemPrompt = `You are a research assistant comparing Work & Study tools.
 Provide a structured comparison of the tools mentioned.
 For each tool, highlight key features, pricing, and use cases.
 Create a clear comparison table if appropriate.
@@ -328,7 +328,7 @@ Cite tool slugs inline when referencing them.`
       break
 
     case "recommendation":
-      systemPrompt = `You are a research assistant recommending developer tools.
+      systemPrompt = `You are a research assistant recommending Work & Study tools.
 Based on the user's needs, suggest the most relevant tools from the context.
 Explain why each tool is a good fit for their use case.
 Prioritize tools that best match their requirements.
@@ -336,7 +336,7 @@ Cite tool slugs inline when referencing them.`
       break
 
     default:
-      systemPrompt = `You are a research assistant that answers questions about developer tools.
+      systemPrompt = `You are a research assistant that answers questions about Work & Study tools.
 Use the provided context snippets. Cite the tool slug inline whenever you reference it.
 If the context does not contain an answer, say you don't know.`
   }

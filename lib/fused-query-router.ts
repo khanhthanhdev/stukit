@@ -54,7 +54,7 @@ export const fusedRouteQuery = async (query: string): Promise<FusedQueryResult> 
     model: geminiFlashLiteModel,
     schema: FusedQueryResultSchema,
     temperature: 0,
-    system: `You are a fused query router for an AI developer tools directory.
+    system: `You are a fused query router for an AI Work & Study tools directory.
 For each user query, you MUST:
 - Decide the primary intent: "recommendation", "comparison", or "search".
 - Provide a confidence score between 0 and 1.

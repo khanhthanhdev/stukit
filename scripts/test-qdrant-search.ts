@@ -114,7 +114,7 @@ async function testAlternativesSearch() {
     await ensureAlternativesCollection()
 
     // Test search with various queries
-    const testQueries = ["AI", "developer", "tool", "productivity"]
+    const testQueries = ["AI", "Work & Study", "tool", "productivity"]
 
     for (const query of testQueries) {
       const start = performance.now()
@@ -304,7 +304,7 @@ async function testSearchPerformance() {
   console.log("\n⚡ Testing Search Performance...")
 
   try {
-    const testQueries = ["AI", "developer", "tool"]
+    const testQueries = ["AI", "Work & Study", "tool"]
 
     for (const query of testQueries) {
       // Test alternatives search performance
@@ -371,7 +371,7 @@ async function testAdminSearch() {
     // Note: searchItems requires authentication, so we'll test the underlying functions
     // In a real scenario, this would be tested through the admin interface
 
-    const testQueries = ["AI", "developer"]
+    const testQueries = ["AI", "Work & Study"]
 
     for (const query of testQueries) {
       // Test alternatives search (used in admin)

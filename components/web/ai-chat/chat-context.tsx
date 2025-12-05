@@ -20,9 +20,9 @@ type ChatContextValue = {
 const ChatContext = createContext<ChatContextValue | null>(null)
 
 const DEFAULT_QUESTIONS = [
-  "What developer tools do you recommend?",
+  "What Work & Study tools do you recommend?",
   "Help me find a tool for API testing",
-  "What are the best free developer tools?",
+  "What are the best free Work & Study tools?",
 ]
 
 const getToolQuestions = (tool: ToolInfo): string[] => [

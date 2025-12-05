@@ -23,7 +23,7 @@ export const generateStaticParams = async () => {
 const getMetadata = cache((collection: CollectionOne, metadata?: Metadata): Metadata => {
   return {
     ...metadata,
-    title: `${collection.name} Developer Tools`,
+    title: `${collection.name} Work & Study Tools`,
     description: collection.description,
   }
 })

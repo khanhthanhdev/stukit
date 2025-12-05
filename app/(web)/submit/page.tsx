@@ -10,7 +10,7 @@ const getMetadata = cache(
   (metadata?: Metadata): Metadata => ({
     ...metadata,
     title: "Submit a Tool",
-    description: `Listing on ${config.site.name} is a great way to get more exposure for your tool. We only list high-quality tools that are useful for developers.`,
+    description: `Listing on ${config.site.name} is a great way to get more exposure for your tool. We only list high-quality tools that are useful for work & study.`,
   }),
 )
 

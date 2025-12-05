@@ -3,7 +3,7 @@
 <p align="center"></p>
 
 <p align="center">
-  Find the Perfect Developer Tools for Your Next Project
+  Find the Perfect Work & Study Tools for Your Next Project
   <br>
   <a href="https://devsuite.co"><strong>Learn more »</strong></a>
   <br />
@@ -23,14 +23,14 @@
 </p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/posts/devsuite?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-devsuite" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=579017&theme=light" alt="DevSuite - Find the Perfect Developer Tools for Your Next Project | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+  <a href="https://www.producthunt.com/posts/devsuite?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-devsuite" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=579017&theme=light" alt="DevSuite - Find the Perfect Work & Study Tools for Your Next Project | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
 </p>
 
 ## About this project
 
-AI Knowledge Cloud is a **free, curated collection of the best developer tools** designed to improve your productivity when building your next project.
+AI Knowledge Cloud is a **free, curated collection of the best Work & Study tools** designed to improve your productivity when building your next project.
 
-In today's fast-paced tech world, keeping up with the **constant stream of new software development tools** can be challenging. That's where DevSuite comes in. The mission is simple: to help developers like you find the perfect tools to improve your workflow and bring your ideas to life more efficiently.
+In today's fast-paced tech world, keeping up with the **constant stream of new software development tools** can be challenging. That's where DevSuite comes in. The mission is simple: to help Work & Studys like you find the perfect tools to improve your workflow and bring your ideas to life more efficiently.
 
 DevSuite is more than just a directory; it's **a community-driven resource**. Feel free to explore, discover, and contribute by submitting your favorite tools to the site. Your input is invaluable in helping to grow and maintain a comprehensive, up-to-date collection.
 

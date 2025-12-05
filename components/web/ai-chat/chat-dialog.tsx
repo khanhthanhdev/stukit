@@ -156,13 +156,13 @@ export function ChatDialog() {
           )}
         >
           <DialogPrimitive.Title className="sr-only">
-            AI Knowledge Cloud Assistant Chat
+            AIKC Assistant
           </DialogPrimitive.Title>
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border bg-foreground/5 px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="size-2.5 rounded-full bg-green-500" />
-              <span className="font-semibold text-lg">AI Knowledge Cloud Assistant</span>
+              <span className="font-semibold text-lg">AIKC Assistant</span>
               {currentTool && (
                 <span className="rounded-full bg-foreground/10 px-3 py-1 text-xs text-muted-foreground">
                   {currentTool.name}
@@ -209,7 +209,7 @@ export function ChatDialog() {
                 <div>
                   <p className="font-semibold text-lg">How can I help you?</p>
                   <p className="text-sm text-muted-foreground">
-                    Ask me about developer tools, recommendations, or alternatives
+                    Ask me about Work & Study tools, recommendations, or alternatives
                   </p>
                 </div>
                 <div className="w-full max-w-md">
@@ -275,7 +275,7 @@ export function ChatDialog() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about developer tools..."
+                placeholder="Ask about Work & Study tools..."
                 disabled={isLoading}
                 rows={1}
                 className="flex-1 resize-none rounded-xl border border-border bg-transparent px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 disabled:opacity-50"

@@ -23,7 +23,7 @@ export const generateStaticParams = async () => {
 const getMetadata = cache((tag: TagOne, metadata?: Metadata): Metadata => {
   return {
     ...metadata,
-    title: `Developer Tools tagged "${tag.name}"`,
+    title: `Work & Study Tools tagged "${tag.name}"`,
   }
 })
 

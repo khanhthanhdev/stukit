@@ -20,7 +20,7 @@ export const RelatedTools = async ({ tool }: { tool: ToolOne }) => {
   // If we got results from Qdrant, use them
   if (relatedResults.length > 0) {
     return (
-      <Listing title={`Developer Tools Similar to ${tool.name}:`}>
+      <Listing title={`Work & Study Tools Similar to ${tool.name}:`}>
         {relatedResults.map(({ tool: relatedTool }) => (
           <ToolCard key={relatedTool.id} tool={relatedTool} />
         ))}
@@ -52,7 +52,7 @@ export const RelatedTools = async ({ tool }: { tool: ToolOne }) => {
   }
 
   return (
-    <Listing title={`Developer Tools Similar to ${tool.name}:`}>
+    <Listing title={`Work & Study Tools Similar to ${tool.name}:`}>
       {tools.map(tool => (
         <ToolCard key={tool.id} tool={tool} />
       ))}

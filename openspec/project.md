@@ -1,7 +1,7 @@
 # Project Context
 
 ## Purpose
-DevSuite ("AI Knowledge Cloud") is a curated discovery platform that helps developers pick the right tools for their next project. The public site highlights featured/latest tools, deep-dive detail pages, and taxonomy-driven navigation, while an authenticated admin dashboard lets us review submissions, schedule launches, and maintain categories, collections, and tags. Background jobs keep tool metadata fresh (copy, screenshots, social stats) and power downstream AI and RAG experiences.
+DevSuite ("AI Knowledge Cloud") is a curated discovery platform that helps Work & Studys pick the right tools for their next project. The public site highlights featured/latest tools, deep-dive detail pages, and taxonomy-driven navigation, while an authenticated admin dashboard lets us review submissions, schedule launches, and maintain categories, collections, and tags. Background jobs keep tool metadata fresh (copy, screenshots, social stats) and power downstream AI and RAG experiences.
 
 ## Tech Stack
 - Next.js 15 App Router with React 19 RC and Turbopack dev server (`bun run dev`)

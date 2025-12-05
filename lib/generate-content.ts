@@ -70,7 +70,7 @@ export const generateContent = async (tool: Tool | Jsonify<Tool>) => {
       model,
       schema,
       system: `
-        You are an expert content creator specializing in developer tool software products.
+        You are an expert content creator specializing in Work & Study tool software products.
         Your task is to generate high-quality, engaging content to display on a directory website.
         You do not use any catchphrases like "Empower", "Streamline" etc.
       `,
@@ -150,7 +150,7 @@ export const generateLaunchTweet = async (tool: Tool | Jsonify<Tool>) => {
       "
     `,
     prompt: `
-      Generate a tweet to announce the publication of the following developer tool software product:
+      Generate a tweet to announce the publication of the following Work & Study tool software product:
 
       Name: "${tool.name}"
       Tagline: "${tool.tagline}"
