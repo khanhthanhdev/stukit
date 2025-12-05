@@ -1,4 +1,4 @@
-import { config } from "~/config"
+import { config } from "~/config/index.server"
 import EmailToolPublished from "~/emails/tool-published"
 import { sendEmails } from "~/lib/email"
 import { inngestLogger } from "~/lib/logger"

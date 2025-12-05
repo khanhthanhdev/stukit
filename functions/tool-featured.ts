@@ -1,4 +1,4 @@
-import { config } from "~/config"
+import { config } from "~/config/index.server"
 import EmailAdminNewSubmission from "~/emails/admin/new-submission"
 import EmailSubmissionExpedited from "~/emails/submission-expedited"
 import { type EmailParams, sendEmails } from "~/lib/email"

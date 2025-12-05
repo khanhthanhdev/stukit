@@ -1,4 +1,4 @@
-import { config } from "~/config"
+import { config } from "~/config/index.server"
 import EmailToolScheduled from "~/emails/tool-scheduled"
 import { sendEmails } from "~/lib/email"
 import { generateContent } from "~/lib/generate-content"

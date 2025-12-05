@@ -2,14 +2,16 @@ import { dataTableConfig } from "~/config/data-table"
 import { linksConfig } from "~/config/links"
 import { mediaConfig } from "~/config/media"
 import { siteConfig } from "~/config/site"
+import { submissionsConfig } from "~/config/submissions"
 
 /**
- * Client-safe config that only includes public environment variables
- * Safe to import in both server and client components
+ * Server-side only config that includes environment variables
+ * DO NOT import this in client components
  */
 export const config = {
   site: siteConfig,
   media: mediaConfig,
   links: linksConfig,
+  submissions: submissionsConfig,
   dataTable: dataTableConfig,
 }

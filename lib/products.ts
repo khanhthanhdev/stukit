@@ -1,6 +1,6 @@
 import { addDays, differenceInMonths } from "date-fns"
 import plur from "plur"
-import { config } from "~/config"
+import { config } from "~/config/index.server"
 
 export const getQueueMetrics = (queueLength: number) => {
   const postingRate = Math.max(1, config.submissions.postingRate)
