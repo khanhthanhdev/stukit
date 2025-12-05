@@ -1,14 +1,25 @@
 import type { Prisma } from "@prisma/client"
-import { categoryManyPayload, categoryOnePayload } from "~/server/categories/payloads"
+import {
+  categoryManyPayload,
+  categoryOnePayload,
+  type CategoryMany,
+} from "~/server/categories/payloads"
 import { prisma } from "~/services/prisma"
 
-export const findCategories = async ({ where, orderBy, ...args }: Prisma.CategoryFindManyArgs) => {
-  return prisma.category.findMany({
+type FindCategoriesArgs = Omit<Prisma.CategoryFindManyArgs, "select" | "include">
+
+export const findCategories = async ({
+  where,
+  orderBy,
+  ...args
+}: FindCategoriesArgs): Promise<CategoryMany[]> => {
+  return (prisma.category.findMany({
+    cacheStrategy: { ttl: 7200, tags: ["categories_list"] },
     ...args,
     orderBy: { name: "asc", ...orderBy },
     where,
     include: categoryManyPayload,
-  })
+  }) as unknown) as Promise<CategoryMany[]>
 }
 
 export const findCategorySlugs = async ({

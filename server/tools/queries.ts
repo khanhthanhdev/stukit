@@ -121,6 +121,7 @@ const keywordSearch = async (
 
   const [tools, totalCount] = await prisma.$transaction([
     prisma.tool.findMany({
+      cacheStrategy: { ttl: 3600, tags: ["tools_list"] },
       ...args,
       orderBy: { [sortBy]: sortOrder },
       where: { publishedAt: { lte: new Date() }, ...whereQuery, ...where },
@@ -130,6 +131,7 @@ const keywordSearch = async (
     }),
 
     prisma.tool.count({
+      cacheStrategy: { ttl: 3600, tags: ["tools_list"] },
       where: { publishedAt: { lte: new Date() }, ...whereQuery, ...where },
     }),
   ])
@@ -271,6 +273,7 @@ class ToolSemanticSearchStrategy
 
     const hydrateStartedAt = Date.now()
     const prismaTools = await prisma.tool.findMany({
+      cacheStrategy: { ttl: 3600, tags: ["tools_list"] },
       ...args,
       where: {
         id: { in: ids },
@@ -415,6 +418,7 @@ export const searchToolsUnified = (
 
 export const findTools = async ({ where, ...args }: Prisma.ToolFindManyArgs) => {
   return prisma.tool.findMany({
+    cacheStrategy: { ttl: 3600, tags: ["tools_list"] },
     ...args,
     where: { publishedAt: { lte: new Date() }, ...where },
     include: toolManyPayload,

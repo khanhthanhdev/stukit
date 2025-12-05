@@ -10,6 +10,7 @@ export const toolOnePayload = Prisma.validator<Prisma.ToolInclude>()({
 })
 
 export const toolManyPayload = Prisma.validator<Prisma.ToolInclude>()({
+  categories: { include: categoryManyPayload },
   collections: { include: collectionManyPayload },
 })
 

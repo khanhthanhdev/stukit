@@ -1,14 +1,16 @@
 import type { Prisma } from "@prisma/client"
-import { tagManyPayload, tagOnePayload } from "~/server/tags/payloads"
+import { tagManyPayload, tagOnePayload, type TagMany } from "~/server/tags/payloads"
 import { prisma } from "~/services/prisma"
 
-export const findTags = async ({ where, orderBy, ...args }: Prisma.TagFindManyArgs) => {
-  return prisma.tag.findMany({
+type FindTagsArgs = Omit<Prisma.TagFindManyArgs, "select" | "include">
+
+export const findTags = async ({ where, orderBy, ...args }: FindTagsArgs): Promise<TagMany[]> => {
+  return (prisma.tag.findMany({
     ...args,
     orderBy: { name: "asc", ...orderBy },
     where: { tools: { some: { publishedAt: { lte: new Date() } } }, ...where },
     include: tagManyPayload,
-  })
+  }) as unknown) as Promise<TagMany[]>
 }
 
 export const findTagSlugs = async ({ where, orderBy, ...args }: Prisma.TagFindManyArgs) => {

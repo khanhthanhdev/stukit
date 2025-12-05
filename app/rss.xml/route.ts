@@ -3,15 +3,29 @@ import { config } from "~/config"
 import { prisma } from "~/services/prisma"
 import { addUTMTracking } from "~/utils/helpers"
 
+type RssTool = {
+  name: string
+  slug: string
+  description: string | null
+  publishedAt: Date | null
+  categories: { name: string }[]
+}
+
 export async function GET() {
   const { url, name, tagline } = config.site
 
-  const tools = await prisma.tool.findMany({
+  const tools = (await prisma.tool.findMany({
     where: { publishedAt: { lte: new Date() } },
     orderBy: { publishedAt: "desc" },
-    select: { name: true, slug: true, description: true, publishedAt: true, categories: true },
+    select: {
+      name: true,
+      slug: true,
+      description: true,
+      publishedAt: true,
+      categories: { select: { name: true } },
+    },
     take: 50,
-  })
+  })) as unknown as RssTool[]
 
   const feed = new RSS({
     title: name,
